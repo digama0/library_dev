@@ -20,5 +20,4 @@ class complete_distrib_lattice α extends complete_lattice α :=
 
 class complete_boolean_algebra α extends boolean_algebra α, complete_distrib_lattice α
 
-
 end lattice

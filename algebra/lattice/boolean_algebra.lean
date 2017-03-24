@@ -38,7 +38,9 @@ by simp [inf_sup_left, λy:α, @inf_comm α _ y x]
 
 end distrib_lattice
 
-class boolean_algebra α extends distrib_lattice α, bounded_lattice α, has_neg α, has_sub α :=
+class bounded_distrib_lattice α extends distrib_lattice α, bounded_lattice α
+
+class boolean_algebra α extends bounded_distrib_lattice α, has_neg α, has_sub α :=
 (inf_neg_eq_bot : ∀x:α, x ⊓ - x = ⊥)
 (sup_neg_eq_top : ∀x:α, x ⊔ - x = ⊤)
 (sub_eq : ∀x y:α, x - y = x ⊓ - y)

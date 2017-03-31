@@ -15,13 +15,16 @@ variables {α : Type u} {x y z : α}
 namespace lattice
 
 class distrib_lattice α extends lattice α :=
-(sup_inf : ∀x y z : α, x ⊔ (y ⊓ z) = (x ⊔ y) ⊓ (x ⊔ z))
+(le_sup_inf : ∀x y z : α, (x ⊔ y) ⊓ (x ⊔ z) ≤ x ⊔ (y ⊓ z))
 
 section distrib_lattice
 variables [distrib_lattice α]
 
-lemma sup_inf_left : ∀{x y z : α}, x ⊔ (y ⊓ z) = (x ⊔ y) ⊓ (x ⊔ z) :=
-distrib_lattice.sup_inf
+lemma le_sup_inf : ∀{x y z : α}, (x ⊔ y) ⊓ (x ⊔ z) ≤ x ⊔ (y ⊓ z) :=
+distrib_lattice.le_sup_inf
+
+lemma sup_inf_left {x y z : α} : x ⊔ (y ⊓ z) = (x ⊔ y) ⊓ (x ⊔ z) :=
+le_antisymm sup_inf_le le_sup_inf
 
 lemma sup_inf_right : (y ⊓ z) ⊔ x = (y ⊔ x) ⊓ (z ⊔ x) :=
 by simp [sup_inf_left, λy:α, @sup_comm α _ y x]

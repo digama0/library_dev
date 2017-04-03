@@ -10,13 +10,44 @@ Authors Jeremy Avigad, Leonardo de Moura
 -- QUESTION: how should we handle facts that only hold classically?
 -/
 import logic.basic data.set  -- from the library in the main repo
-import ...algebra.lattice
+import ...algebra.lattice ...algebra.lattice.complete_boolean_algebra
 open function tactic set lattice
 
-universes u v w
-variables {α : Type u} {β : Type v} {γ : Type w}
+universes u v w x
+variables {α : Type u} {β : Type v} {γ : Type w} {ι : Sort x}
+
+lemma or_imp_iff_and_imp {a b c : Prop} : ((a ∨ b) → c) ↔ ((a → c) ∧ (b → c)) :=
+⟨take h, ⟨take ha, h (or.inl ha), take hb, h (or.inr hb)⟩,
+  take ⟨ha, hb⟩, or.rec ha hb⟩
+
+lemma forall_and_comm {α : Type u} {p q : α → Prop} : (∀a, p a ∧ q a) ↔ ((∀a, p a) ∧ (∀a, q a)) :=
+⟨take h, ⟨take a, (h a)^.left, take a, (h a)^.right⟩,
+  take ⟨ha, hb⟩ a, ⟨ha a, hb a⟩⟩
+
+lemma forall_eq_elim {α : Type u} {p : α → Prop} {a' : α} : (∀a, a = a' → p a) ↔ p a' :=
+⟨take h, h a' rfl, take h a eq, eq^.symm ▸ h⟩
+
+lemma eq_iff_le_and_le {α : Type u} [weak_order α] {a b : α} : a = b ↔ (a ≤ b ∧ b ≤ a) :=
+⟨take eq, eq ▸ ⟨le_refl a, le_refl a⟩, take ⟨ab, ba⟩, le_antisymm ab ba⟩
+
+@[simp]
+lemma prod.mk.inj_iff {α : Type u} {β : Type v} {a₁ a₂ : α} {b₁ b₂ : β} :
+  (a₁, b₁) = (a₂, b₂) ↔ (a₁ = a₂ ∧ b₁ = b₂) :=
+⟨prod.mk.inj, by cc⟩
+
+@[simp]
+lemma prod.forall {α : Type u} {β : Type v} {p : α × β → Prop} :
+  (∀x, p x) ↔ (∀a b, p (a, b)) :=
+⟨take h a b, h (a, b), take h ⟨a, b⟩, h a b⟩
+
+@[simp]
+lemma set_of_subset_set_of {p q : α → Prop} : {a | p a} ⊆ {a | q a} = (∀a, p a → q a) :=
+rfl
 
 namespace set
+
+instance : inhabited (set α) :=
+⟨∅⟩
 
 @[simp]
 lemma mem_set_of {a : α} {p : α → Prop} : a ∈ {a | p a} = p a :=
@@ -63,8 +94,31 @@ instance lattice_set : complete_lattice (set α) :=
   le_Inf       := take s t h a a_in t' t'_in, h t' t'_in a_in,
   Inf_le       := take s t t_in a h, h _ t_in }
 
-/- strict subset -/
+instance : distrib_lattice (set α) :=
+{ set.lattice_set with
+  le_sup_inf     := take s t u x ⟨h₁, h₂⟩,
+    match h₁ with
+    | or.inl h₁ := or.inl h₁
+    | or.inr h₁ :=
+      match h₂ with
+      | or.inl h₂ := or.inl h₂
+      | or.inr h₂ := or.inr ⟨h₁, h₂⟩
+      end
+    end }
 
+/- mem and set_of -/
+
+@[simp] lemma mem_set_of_eq (a : α) (P : α → Prop) : a ∈ {a : α | P a} = P a :=
+rfl
+
+@[simp] lemma nmem_set_of_eq (a : α) (P : α → Prop) : a ∉ {a : α | P a} = ¬ P a :=
+rfl
+
+@[simp] lemma set_of_false : {a : α | false} = ∅ :=
+set.ext $ take a, by simp [mem_empty_eq]
+
+
+/- strict subset -/
 def strict_subset (a b : set α) := a ⊆ b ∧ a ≠ b
 
 instance : has_ssubset (set α) := ⟨strict_subset⟩
@@ -147,6 +201,9 @@ eq_of_subset_of_subset (union_subset h (subset.refl _)) (subset_union_right _ _)
 
 theorem union_eq_self_of_subset_right {s t : set α} (h : t ⊆ s) : s ∪ t = s :=
 by rw [union_comm, union_eq_self_of_subset_left h]
+
+lemma union_subset_iff {s t u : set α} : s ∪ t ⊆ u ↔ s ⊆ u ∧ t ⊆ u :=
+@sup_le_iff (set α) _ s t u
 
 attribute [simp] union_comm union_assoc union_left_comm
 
@@ -304,11 +361,19 @@ ext (take y, iff.intro
       (suppose y ∈ ({x} : set α), or.inl (eq_of_mem_singleton this))
       (suppose y ∈ s, or.inr this)))
 
+@[simp] lemma union_insert_eq {a : α} {s t : set α} :
+  s ∪ (insert a t) = insert a (s ∪ t) :=
+by simp [insert_eq]
+
 @[simp]
 theorem pair_eq_singleton (a : α) : ({a, a} : set α) = {a} :=
 begin rw insert_eq_of_mem, apply mem_singleton end
 
 theorem singleton_ne_empty (a : α) : ({a} : set α) ≠ ∅ := insert_ne_empty _ _
+
+@[simp]
+lemma singleton_subset_iff {a : α} {s : set α} : {a} ⊆ s ↔ a ∈ s :=
+by simp [subset, set.subset, forall_eq_elim]
 
 /- separation -/
 
@@ -449,6 +514,12 @@ theorem mem_image {f : α → β} {s : set α} {x : α} {y : β} (h₁ : x ∈ s
 theorem mem_image_of_mem (f : α → β) {x : α} {a : set α} (h : x ∈ a) : f x ∈ image f a :=
 mem_image h rfl
 
+/- image and vimage are a Galois connection -/
+theorem image_subset_iff_subset_vimage {s : set α} {t : set β} {f : α → β} :
+  set.image f s ⊆ t ↔ s ⊆ {x | f x ∈ t} :=
+⟨take h x hx, h (mem_image_of_mem f hx),
+  take h x hx, match x, hx with ._, ⟨y, hy, rfl⟩ := h hy end⟩
+
 -- facilitate cases on being in the image
 -- REMOVE: should be not necessary with the new equations compiler
 /-
@@ -553,16 +624,16 @@ end image
 /- union and intersection over a family of sets indexed by a type -/
 
 @[reducible]
-def Union' {α : Sort u} (s : α → set β) : set β := supr s
+def Union' (s : ι → set β) : set β := supr s
 
 @[reducible]
-def Inter {α : Sort u} (s : α → set β) : set β := infi s
+def Inter (s : ι → set β) : set β := infi s
 
 notation `⋃` binders `, ` r:(scoped f, Union' f) := r
 notation `⋂` binders `, ` r:(scoped f, Inter f) := r
 
 @[simp]
-theorem mem_Union_eq {α : Sort u} (x : β) (s : α → set β) : (x ∈ ⋃ i, s i) = (∃ i, x ∈ s i) :=
+theorem mem_Union_eq (x : β) (s : ι → set β) : (x ∈ ⋃ i, s i) = (∃ i, x ∈ s i) :=
 propext
   ⟨take ⟨t, ⟨⟨a, (t_eq : t = s a)⟩, (h : x ∈ t)⟩⟩, ⟨a, t_eq ▸ h⟩, 
   take ⟨a, h⟩, ⟨s a, ⟨⟨a, rfl⟩, h⟩⟩⟩
@@ -571,14 +642,21 @@ propext
   -- TODO: also eliminate ∃i, ... ∧ i = t ∧ ...
 
 @[simp]
-theorem mem_Inter_eq {α : Sort u} (x : β) (s : α → set β) : (x ∈ ⋂ i, s i) = (∀ i, x ∈ s i) :=
+theorem mem_Inter_eq (x : β) (s : ι → set β) : (x ∈ ⋂ i, s i) = (∀ i, x ∈ s i) :=
 propext
-  ⟨take (h : ∀a ∈ {a : set β | ∃i : α, a = s i}, x ∈ a) a, h (s a) ⟨a, rfl⟩,
+  ⟨take (h : ∀a ∈ {a : set β | ∃i, a = s i}, x ∈ a) a, h (s a) ⟨a, rfl⟩,
   take h t ⟨a, (eq : t = s a)⟩, eq^.symm ▸ h a⟩
 
-theorem Union_subset {s : α → set β} {t : set β} (h : ∀ i, s i ⊆ t) : (⋃ i, s i) ⊆ t :=
+
+theorem Union_subset {s : ι → set β} {t : set β} (h : ∀ i, s i ⊆ t) : (⋃ i, s i) ⊆ t :=
 -- TODO: should be simpler when sets' order is based on lattices
 @supr_le (set β) _ set.lattice_set _ _ h
+
+theorem Union_subset_iff {α : Sort u} {s : α → set β} {t : set β} : (⋃ i, s i) ⊆ t ↔ (∀ i, s i ⊆ t):=
+⟨take h i, subset.trans (le_supr s _) h, Union_subset⟩
+
+theorem mem_Inter {α : Sort u} {x : β} {s : α → set β} : (∀ i, x ∈ s i) → (x ∈ ⋂ i, s i) :=
+take h t ⟨a, (eq : t = s a)⟩, eq^.symm ▸ h a
 
 theorem subset_Inter {t : set β} {s : α → set β} (h : ∀ i, t ⊆ s i) : t ⊆ ⋂ i, s i :=
 -- TODO: should be simpler when sets' order is based on lattices
@@ -713,6 +791,9 @@ theorem mem_sUnion {x : α} {t : set α} {S : set (set α)} (hx : x ∈ t) (ht :
   x ∈ ⋃₀ S :=
 ⟨t, ⟨ht, hx⟩⟩
 
+@[simp]
+theorem mem_sUnion_eq {x : α} {S : set (set α)} : x ∈ ⋃₀ S = (∃t ∈ S, x ∈ t) := rfl
+
 -- is this lemma really necessary?
 theorem not_mem_of_not_mem_sUnion {x : α} {t : set α} {S : set (set α)}
     (hx : x ∉ ⋃₀ S) (ht : t ∈ S) :
@@ -722,6 +803,9 @@ have x ∈ ⋃₀ S, from mem_sUnion this ht,
 show false, from hx this
 
 theorem mem_sInter {x : α} {t : set α} {S : set (set α)} (h : ∀ t ∈ S, x ∈ t) : x ∈ ⋂₀ S := h
+
+@[simp]
+theorem mem_sInter_eq {x : α} {S : set (set α)} : x ∈ ⋂₀ S = (∀ t ∈ S, x ∈ t) := rfl
 
 theorem sInter_subset_of_mem {S : set (set α)} {t : set α} (tS : t ∈ S) : (⋂₀ S) ⊆ t :=
 Inf_le tS
@@ -793,6 +877,34 @@ by simp
 
 theorem Inter_eq_sInter_image {α I : Type} (s : I → set α) : (⋂ i, s i) = ⋂₀ (s ' univ) :=
 by simp
+
+instance : complete_boolean_algebra (set α) :=
+{ set.lattice_set with
+  neg                 := compl,
+  sub                 := sdiff,
+  inf_neg_eq_bot      := take s, ext $ take x, ⟨take ⟨h, nh⟩, nh h, false.elim⟩,
+  sup_neg_eq_top      := take s, ext $ take x, ⟨take h, trivial, take _, classical.em $ x ∈ s⟩,
+  le_sup_inf          := distrib_lattice.le_sup_inf,
+  sub_eq              := take x y, rfl,
+  infi_sup_le_sup_Inf := take s t x, show x ∈ (⋂ b ∈ t, s ∪ b) → x ∈ s ∪ (⋂₀ t), 
+    by simp; exact take h,
+      or.imp_right
+        (assume hn : x ∉ s, take i hi, or.resolve_left (h i hi) hn)
+        (classical.em $ x ∈ s),
+  inf_Sup_le_supr_inf := take s t x, show x ∈ s ∩ (⋃₀ t) → x ∈ (⋃ b ∈ t, s ∩ b), by simp; exact id }
+
+lemma union_sdiff_same {a b : set α} : a ∪ (b - a) = a ∪ b :=
+lattice.sup_sub_same
+
+@[simp]
+lemma sdiff_singleton_eq_same {a : α} {s : set α} (h : a ∉ s) : s - {a} = s :=
+sub_eq_left $ eq_empty_of_forall_not_mem $ take x ⟨ht, ha⟩, 
+  begin simp at ha, simp [ha] at ht, exact h ht end
+
+@[simp]
+lemma insert_sdiff_singleton {a : α} {s : set α}  :
+  insert a (s - {a}) = insert a s :=
+by simp [insert_eq, union_sdiff_same]
 
 section disjoint
 variable [semilattice_inf_bot α]

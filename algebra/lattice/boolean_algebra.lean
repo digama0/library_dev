@@ -115,6 +115,15 @@ le_of_inf_eq $
   calc -x ⊓ -y = - (x ⊔ y) : neg_sup^.symm
            ... = -x        : congr_arg neg $ sup_of_le_left h
 
+lemma sup_sub_same : x ⊔ (y - x) = x ⊔ y :=
+by simp [sub_eq, sup_inf_left]
+
+lemma sub_eq_left (h : x ⊓ y = ⊥) : x - y = x :=
+calc x - y = (x ⊓ -y) ⊔ (x ⊓ y) : by simp [h, sub_eq]
+  ... = (-y ⊓ x) ⊔ (y ⊓ x) : by simp [inf_comm]
+  ... = (-y ⊔ y) ⊓ x : inf_sup_right^.symm
+  ... = x : by simp
+
 end boolean_algebra
 
 end lattice

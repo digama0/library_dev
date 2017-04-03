@@ -5,67 +5,22 @@ Authors: Johannes Hölzl
 
 Theory of filters on sets.
 -/
-import .complete_lattice ...data.set.basic
+import .complete_lattice ...data.set
 
 open lattice set
 
 universes u v w
 
-lemma or_imp_iff_and_imp {a b c : Prop} : ((a ∨ b) → c) ↔ ((a → c) ∧ (b → c)) :=
-⟨take h, ⟨take ha, h (or.inl ha), take hb, h (or.inr hb)⟩,
-  take ⟨ha, hb⟩, or.rec ha hb⟩
+namespace lattice
+variables {α : Type u} [complete_lattice α]
 
-lemma forall_and_comm {α : Type u} {p q : α → Prop} : (∀a, p a ∧ q a) ↔ ((∀a, p a) ∧ (∀a, q a)) :=
-⟨take h, ⟨take a, (h a)^.left, take a, (h a)^.right⟩,
-  take ⟨ha, hb⟩ a, ⟨ha a, hb a⟩⟩
+lemma Inf_eq_finite_sets {s : set α} :
+  Inf s = (⨅ t ∈ { t | finite t ∧ t ⊆ s}, Inf t) :=
+le_antisymm 
+  (le_infi $ take t, le_infi $ take ⟨_, h⟩, Inf_le_Inf h)
+  (le_Inf $ take b h, infi_le_of_le {b} $ infi_le_of_le (by simp [h]) $ Inf_le $ by simp)
 
-lemma forall_eq_elim {α : Type u} {p : α → Prop} {a' : α} : (∀a, a = a' → p a) ↔ p a' :=
-⟨take h, h a' rfl, take h a eq, eq^.symm ▸ h⟩
-
-lemma eq_iff_le_and_le {α : Type u} [weak_order α] {a b : α} : a = b ↔ (a ≤ b ∧ b ≤ a) :=
-⟨take eq, eq ▸ ⟨le_refl a, le_refl a⟩, take ⟨ab, ba⟩, le_antisymm ab ba⟩
-
-@[simp]
-lemma prod.mk.inj_iff {α : Type u} {β : Type v} {a₁ a₂ : α} {b₁ b₂ : β} :
-  (a₁, b₁) = (a₂, b₂) ↔ (a₁ = a₂ ∧ b₁ = b₂) :=
-⟨prod.mk.inj, by cc⟩
-
-@[simp]
-lemma prod.forall {α : Type u} {β : Type v} {p : α × β → Prop} :
-  (∀x, p x) ↔ (∀a b, p (a, b)) :=
-⟨take h a b, h (a, b), take h ⟨a, b⟩, h a b⟩
-
-section set
-variables {α : Type u} {β : Type v}
-
-theorem Union_subset {α : Sort u} {s : α → set β} {t : set β} (h : ∀ i, s i ⊆ t) : (⋃ i, s i) ⊆ t :=
--- TODO: should be simpler when sets' order is based on lattices
-@supr_le (set β) _ set.lattice_set _ _ h
-
-theorem Union_subset_iff {α : Sort u} {s : α → set β} {t : set β} : (⋃ i, s i) ⊆ t ↔ (∀ i, s i ⊆ t):=
-⟨take h i, subset.trans (le_supr s _) h, Union_subset⟩
-
-theorem mem_Inter {α : Sort u} {x : β} {s : α → set β} : (∀ i, x ∈ s i) → (x ∈ ⋂ i, s i) :=
-take h t ⟨a, (eq : t = s a)⟩, eq^.symm ▸ h a
-
-@[simp]
-lemma set_of_subset_set_of {p q : α → Prop} : {a | p a} ⊆ {a | q a} = (∀a, p a → q a) :=
-rfl
-
-/- image and vimage are a Galois connection -/
-theorem image_subset_iff_subset_vimage {s : set α} {t : set β} {f : α → β} :
-  set.image f s ⊆ t ↔ s ⊆ {x | f x ∈ t} :=
-⟨take h x hx, h (mem_image_of_mem f hx),
-  take h x hx, match x, hx with ._, ⟨y, hy, rfl⟩ := h hy end⟩
-
-lemma union_subset_iff {s t u : set α} : s ∪ t ⊆ u ↔ s ⊆ u ∧ t ⊆ u :=
-@sup_le_iff (set α) _ s t u
-
-@[simp]
-lemma singelton_subset_iff {a : α} {s : set α} : {a} ⊆ s ↔ a ∈ s :=
-by simp [subset, set.subset, forall_eq_elim]
-
-end set
+end lattice
 
 section order
 variables {α : Type u} (r : α → α → Prop)
@@ -192,6 +147,16 @@ protected def inf (f g : filter α) :=
                                 ... ≤ x ∩ y : inf_le_inf h₁ h₂ ⟩,
       inter_subset_left _ _, inter_subset_right _ _⟩ }  
 
+def cofinite : filter α :=
+{ filter .
+  sets          := {s | finite (- s)},
+  inhabited     := ⟨univ, by simp⟩,
+  upwards_sets  := take s t, assume hs : finite (-s), assume st: s ⊆ t,
+    finite_subset hs $ @lattice.neg_le_neg (set α) _ _ _ st,
+  directed_sets := take s, assume hs : finite (-s), take t, assume ht : finite (-t),
+    ⟨s ∩ t, by simp [compl_inter, finite_union, ht, hs], 
+      inter_subset_left _ _, inter_subset_right _ _⟩ }
+
 instance weak_order_filter : weak_order (filter α) :=
 { weak_order .
   le            := λf g, g^.sets ⊆ f^.sets,
@@ -200,6 +165,9 @@ instance weak_order_filter : weak_order (filter α) :=
   le_trans      := take a b c h₁ h₂, subset.trans h₂ h₁ }
 
 instance : has_Sup (filter α) := ⟨join ∘ principal⟩
+
+instance inhbaited' : _root_.inhabited (filter α) :=
+⟨principal ∅⟩
 
 protected lemma le_Sup {s : set (filter α)} {f : filter α} : f ∈ s → f ≤ Sup s :=
 take f_in_s t' h, h f_in_s
@@ -284,12 +252,12 @@ take x, false.elim
 
 @[simp]
 lemma mem_sup_sets {f g : filter α} {s : set α} :
-  s ∈ (f ⊔ g)^.sets ↔ s ∈ f^.sets ∧ s ∈ g^.sets :=
+  s ∈ (f ⊔ g)^.sets = (s ∈ f^.sets ∧ s ∈ g^.sets) :=
 by refl
 
 @[simp]
 lemma mem_inf_sets {f g : filter α} {s : set α} :
-  s ∈ (f ⊓ g)^.sets ↔ (∃t₁∈f^.sets, ∃t₂∈g^.sets, t₁ ∩ t₂ ⊆ s) :=
+  s ∈ (f ⊓ g)^.sets = (∃t₁∈f^.sets, ∃t₂∈g^.sets, t₁ ∩ t₂ ⊆ s) :=
 by refl
 
 lemma infi_sets_eq {f : ι → filter α} (h : directed (≤) f) (ne : nonempty ι) :
@@ -305,6 +273,16 @@ in
   subset.antisymm
     (show u ≤ infi f, from le_infi $ take i, le_supr (λi, (f i)^.sets) i)
     (Union_subset $ take i, infi_le f i)
+
+lemma Inf_sets_eq_finite {s : set (filter α)} :
+  (complete_lattice.Inf s)^.sets = (⋃ t ∈ {t | finite t ∧ t ⊆ s}, (Inf t)^.sets) :=
+calc (Inf s)^.sets = (⨅ t ∈ { t | finite t ∧ t ⊆ s}, Inf t)^.sets : by rw [lattice.Inf_eq_finite_sets]
+  ... = (⨅ t : {t // finite t ∧ t ⊆ s}, (Inf t^.val))^.sets : by simp [infi_subtype]; refl
+  ... = (⨆ t : {t // finite t ∧ t ⊆ s}, (Inf t^.val)^.sets) : infi_sets_eq
+    (take ⟨x, hx₁, hx₂⟩ ⟨y, hy₁, hy₂⟩, ⟨⟨x ∪ y, finite_union hx₁ hy₁, union_subset hx₂ hy₂⟩, 
+      Inf_le_Inf $ subset_union_left _ _, Inf_le_Inf $ subset_union_right _ _⟩) 
+    ⟨⟨∅, by simp⟩⟩
+  ... = (⨆ t ∈ {t | finite t ∧ t ⊆ s}, (Inf t)^.sets) : by simp [supr_subtype]; refl
 
 lemma supr_sets_eq {f : ι → filter α} : (supr f)^.sets = (⋂i, (f i)^.sets) :=
 set.ext $ take s, 
@@ -322,6 +300,50 @@ filter_eq $ set.ext $ take x, by simp [supr_sets_eq, join]
 @[simp]
 lemma supr_join {ι : Sort w} {f : ι → filter (filter α)} : (⨆x, join (f x)) = join (⨆x, f x) :=
 filter_eq $ set.ext $ take x, by simp [supr_sets_eq, join]
+
+instance : distrib_lattice (filter α) :=
+{ filter.complete_lattice_filter with
+  le_sup_inf := take x y z s h,
+  begin
+    cases h with h₁ h₂, revert h₂,
+    simp,
+    exact take ⟨t₁, ht₁, t₂, ht₂, hs⟩, ⟨s ∪ t₁, 
+      x^.upwards_sets h₁ $ subset_union_left _ _,
+      y^.upwards_sets ht₁ $ subset_union_right _ _,
+      s ∪ t₂, 
+      x^.upwards_sets h₁ $ subset_union_left _ _,
+      z^.upwards_sets ht₂ $ subset_union_right _ _,
+      subset.trans (@le_sup_inf (set α) _ _ _ _) (union_subset (subset.refl _) hs)⟩
+  end }
+
+private theorem infi_finite_distrib {s : set (filter α)} {f : filter α} (h : finite s) :
+  (⨅ a ∈ s, f ⊔ a) = f ⊔ (Inf s) :=
+begin
+  induction h with a s hn hs hi,
+  { simp, exact infi_const bot },
+  { simp [hi, sup_inf_left] }
+end
+
+instance : complete_distrib_lattice (filter α) :=
+{ filter.complete_lattice_filter with
+  infi_sup_le_sup_Inf := take f s t h,
+  begin
+    cases h with h₁ h₂,
+    rw [Inf_sets_eq_finite] at h₂,
+    simp at h₂,
+    cases h₂ with s' hs', cases hs' with hs' hs'', cases hs'' with hs's ht',
+    assert ht : t ∈ (⨅ a ∈ s', f ⊔ a)^.sets,
+    { rw [infi_finite_distrib], exact ⟨h₁, ht'⟩, exact hs' },
+    clear h₁ ht',
+    revert ht t,
+    change (⨅ a ∈ s, f ⊔ a) ≤ (⨅ a ∈ s', f ⊔ a),
+    apply infi_le_infi2 _,
+    exact take i, ⟨i, infi_le_infi2 $ take h, ⟨hs's h, le_refl _⟩⟩
+  end,
+  inf_Sup_le_supr_inf := take f s t,
+  begin
+    simp [supr_sets_eq]
+  end }
 
 /- principal equations -/
 

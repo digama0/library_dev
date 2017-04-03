@@ -7,7 +7,7 @@ Theory of topological spaces.
 -/
 import algebra.lattice.filter
 
-open set filter
+open set filter lattice
 
 universes u v
 
@@ -25,6 +25,8 @@ principal_eq_iff_eq
 @[simp]
 lemma return_neq_bot {α : Type u} {a : α} : return a ≠ (⊥ : filter α) :=
 by simp [return, pure]
+
+
 
 class topology (α : Type u) :=
 (nhds           : α → filter α)
@@ -75,9 +77,9 @@ lemma closed_univ : closed (univ : set α) := by simp [closed, univ_mem_sets, pr
 
 #check lattice.le_inf_sup
 
-lemma closed_union (h₁ : closed s₁) (h₂ : closed s₂) : closed (s₁ ∪ s₂)
-| a (or.inl h) := _
-| a (or.inr h) := _
+lemma closed_union (h₁ : closed s₁) (h₂ : closed s₂) : closed (s₁ ∪ s₂) :=
+take a h,
+_
 
 /- interior -/
 def interior (s : set α) : set α := {a | nhds a ≤ principal s }

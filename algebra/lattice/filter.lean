@@ -324,10 +324,12 @@ begin
   { simp [hi, sup_inf_left] }
 end
 
-instance : complete_distrib_lattice (filter α) :=
-{ filter.complete_lattice_filter with
-  infi_sup_le_sup_Inf := take f s t h,
+/- the complementary version with ⨆ g∈s, f ⊓ g does not hold! -/
+lemma infi_sup_eq { f : filter α } {s : set (filter α)} :
+  (⨅ g∈s, f ⊔ g) = f ⊔ complete_lattice.Inf s :=
+le_antisymm
   begin
+    intros t h,
     cases h with h₁ h₂,
     rw [Inf_sets_eq_finite] at h₂,
     simp at h₂,
@@ -339,11 +341,8 @@ instance : complete_distrib_lattice (filter α) :=
     change (⨅ a ∈ s, f ⊔ a) ≤ (⨅ a ∈ s', f ⊔ a),
     apply infi_le_infi2 _,
     exact take i, ⟨i, infi_le_infi2 $ take h, ⟨hs's h, le_refl _⟩⟩
-  end,
-  inf_Sup_le_supr_inf := take f s t,
-  begin
-    simp [supr_sets_eq]
-  end }
+  end
+  (le_infi $ take g, le_infi $ take h, sup_le_sup (le_refl f) $ Inf_le h)
 
 /- principal equations -/
 
@@ -362,6 +361,9 @@ lemma supr_principal {ι : Sort w} {s : ι → set α} : (⨆x, principal (s x))
 filter_eq $ set.ext $ take x, by simp [supr_sets_eq]; exact (@supr_le_iff (set α) _ _ _ _)^.symm
 
 lemma principal_univ : principal (univ : set α) = top :=
+rfl
+
+lemma principal_empty : principal (∅ : set α) = bot :=
 rfl
 
 /- map equations -/

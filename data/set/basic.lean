@@ -20,7 +20,7 @@ lemma or_imp_iff_and_imp {a b c : Prop} : ((a ∨ b) → c) ↔ ((a → c) ∧ (
 ⟨take h, ⟨take ha, h (or.inl ha), take hb, h (or.inr hb)⟩,
   take ⟨ha, hb⟩, or.rec ha hb⟩
 
-lemma forall_and_comm {α : Type u} {p q : α → Prop} : (∀a, p a ∧ q a) ↔ ((∀a, p a) ∧ (∀a, q a)) :=
+lemma forall_and_comm {α : Sort u} {p q : α → Prop} : (∀a, p a ∧ q a) ↔ ((∀a, p a) ∧ (∀a, q a)) :=
 ⟨take h, ⟨take a, (h a)^.left, take a, (h a)^.right⟩,
   take ⟨ha, hb⟩ a, ⟨ha a, hb a⟩⟩
 

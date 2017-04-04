@@ -69,17 +69,18 @@ lemma open'_Union {f : ι → set α} (h : ∀i, open' (f i)) : open' (⋃i, f i
 open'_sUnion $ take t ⟨i, (heq : t = f i)⟩, heq^.symm ▸ h i
 
 /- closed -/
-def closed (s : set α) : Prop := ∀a ∈ s, principal s ⊓ nhds a ≠ ⊥
+def closed (s : set α) : Prop := ∀a, principal s ⊓ nhds a ≠ ⊥ → a ∈ s
 
-lemma closed_empty : closed (∅ : set α) := by simp [closed]
+lemma closed_empty : closed (∅ : set α) := by simp [closed, principal_empty]
 
 lemma closed_univ : closed (univ : set α) := by simp [closed, univ_mem_sets, principal_univ]
 
-#check lattice.le_inf_sup
+lemma closed_union (c₁ : closed s₁) (c₂ : closed s₂) : closed (s₁ ∪ s₂) :=
+take a h, _
 
-lemma closed_union (h₁ : closed s₁) (h₂ : closed s₂) : closed (s₁ ∪ s₂) :=
-take a h,
-_
+lemma closed_sInter{s : set (set α)} (h : ∀t ∈ s, closed t) : closed (⋂₀ s) :=
+take a ha t ht,
+h t ht _ $ take h', ha $ bot_unique $ h' ▸ inf_le_inf (principal_mono^.mpr $ Inf_le ht) (le_refl _)
 
 /- interior -/
 def interior (s : set α) : set α := {a | nhds a ≤ principal s }

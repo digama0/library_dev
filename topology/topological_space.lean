@@ -11,6 +11,10 @@ open set filter lattice
 universes u v w
 
 @[simp]
+lemma not_not_mem_iff {α : Type u} {a : α} {s : set α} : ¬ (a ∉ s) ↔ a ∈ s :=
+classical.not_not_iff _
+
+@[simp]
 lemma singleton_neq_emptyset {α : Type u} {a : α} : {a} ≠ (∅ : set α) :=
 take h, 
 have a ∉ ({a} : set α),
@@ -25,7 +29,7 @@ principal_eq_iff_eq
 lemma return_neq_bot {α : Type u} {a : α} : return a ≠ (⊥ : filter α) :=
 by simp [return, pure]
 
-lemma not_imp_not_iff {a b : Prop} :
+lemma not_imp_iff_not_imp {a b : Prop} :
   (¬ a → ¬ b) ↔ (b → a) :=
 ⟨take h hb, classical.by_contradiction $ take na, h na hb, 
   contrapos⟩
@@ -42,15 +46,15 @@ le_antisymm
     ... = b ⊔ (b ⊓ a)       : by rw [h₁, sup_inf_left, h₂]; simp [sup_comm]
     ... = b                 : sup_inf_self)
 
-lemma inf_eq_bot_iff_le_compl {α : Type u} [bounded_distrib_lattice α] {a b c : α} (h₁ : b ⊔ c = ⊤) (h₂ : b ⊓ c = ⊥) :
-  b ⊓ a = ⊥ ↔ a ≤ c :=
-⟨suppose b ⊓ a = ⊥, 
+lemma inf_eq_bot_iff_le_compl {α : Type u} [bounded_distrib_lattice α] {a b c : α}
+  (h₁ : b ⊔ c = ⊤) (h₂ : b ⊓ c = ⊥) : a ⊓ b = ⊥ ↔ a ≤ c :=
+⟨suppose a ⊓ b = ⊥, 
   calc a ≤ a ⊓ (b ⊔ c) : by simp [h₁]
-    ... = (b ⊓ a) ⊔ (a ⊓ c) : by simp [inf_sup_left, inf_comm]
+    ... = (a ⊓ b) ⊔ (a ⊓ c) : by simp [inf_sup_left]
     ... ≤ c : by simp [this, inf_le_right],
   suppose a ≤ c,
   bot_unique $
-    calc b ⊓ a ≤ b ⊓ c : inf_le_inf (le_refl b) this
+    calc a ⊓ b ≤ b ⊓ c : by rw [inf_comm]; exact inf_le_inf (le_refl _) this
       ... = ⊥ : h₂⟩
 
 lemma compl_image_set_of {α : Type u} {p : set α → Prop} :
@@ -58,6 +62,9 @@ lemma compl_image_set_of {α : Type u} {p : set α → Prop} :
 set.ext $ take x, ⟨take ⟨y, (hy : p y), (h_eq : -y = x)⟩,
   show p (- x), by rw [-h_eq, lattice.neg_neg]; assumption,
   assume h : p (-x), ⟨_, h, lattice.neg_neg⟩⟩
+
+lemma neg_subset_neg_iff_subset {α : Type u} {x y : set α} : - y ⊆ - x ↔ x ⊆ y :=
+@neg_le_neg_iff_le (set α) _ _ _
 
 class topology (α : Type u) :=
 (open'       : set α → Prop)
@@ -224,25 +231,36 @@ subset.antisymm
 lemma interior_subset_closure {s : set α} : interior s ⊆ closure s :=
 subset.trans interior_subset subset_closure
 
-@[simp]
-lemma interior_compl_eq {s : set α} : interior (- s) = - closure s :=
-begin 
+lemma closure_eq_compl_interior_compl {s : set α} : closure s = - interior (- s) :=
+begin
   simp [interior, closure],
-  rw [compl_sInter, compl_image_set_of],
-  simp,
-  apply congr_arg, apply set.ext, intro x,
-  apply and_congr (iff.refl _),
-  apply @neg_le_iff_neg_le (set α) _ _ _
+  rw [compl_sUnion, compl_image_set_of],
+  simp [neg_subset_neg_iff_subset]
 end
 
 @[simp]
+lemma interior_compl_eq {s : set α} : interior (- s) = - closure s :=
+by simp [closure_eq_compl_interior_compl]
+
+@[simp]
 lemma closure_compl_eq {s : set α} : closure (- s) = - interior s :=
-have - - closure (- s) = - interior (- (- s)),
-  by rw [interior_compl_eq],
-by simp [lattice.neg_neg] at this; assumption
+by simp [closure_eq_compl_interior_compl]
 
 /- neighbourhood filter -/
 def nhds (a : α) : filter α := (⨅ s ∈ {s : set α | a ∈ s ∧ open' s}, principal s)
+
+lemma nhds_sets {a : α} : (nhds a)^.sets = {s | ∃t⊆s, open' t ∧ a ∈ t} := 
+calc (nhds a)^.sets = (⋃s∈{s : set α| a ∈ s ∧ open' s}, (principal s)^.sets) : infi_sets_eq'
+    begin
+      simp,
+      exact take x ⟨hx₁, hx₂⟩ y ⟨hy₁, hy₂⟩, ⟨_, ⟨open_inter hx₁ hy₁, ⟨hx₂, hy₂⟩⟩,
+        ⟨inter_subset_left _ _, inter_subset_right _ _⟩⟩
+    end
+    ⟨univ, by simp⟩
+  ... = {s | ∃t⊆s, open' t ∧ a ∈ t} :
+   le_antisymm
+     (supr_le $ take i, supr_le $ take ⟨hi₁, hi₂⟩ t ht, ⟨i, ht, hi₂, hi₁⟩)
+     (take t ⟨i, hi₁, hi₂, hi₃⟩, begin simp; exact ⟨i, hi₂, hi₁, hi₃⟩ end)
 
 lemma return_le_nhds : return ≤ (nhds : α → filter α) :=
 take a, le_infi $ take s, le_infi $ take ⟨h₁, _⟩, principal_mono^.mpr $ by simp [h₁]
@@ -253,5 +271,26 @@ suppose nhds a = ⊥,
 have return a = (⊥ : filter α),
   from lattice.bot_unique $ this ▸ return_le_nhds a,
 return_neq_bot this
+
+lemma interior_eq_nhds {s : set α} : interior s = {a | nhds a ≤ principal s} :=
+set.ext $ by simp [interior, nhds_sets]
+
+lemma open_iff_nhds {s : set α} : open' s ↔ (∀a∈s, nhds a ≤ principal s) :=
+calc open' s ↔ interior s = s : by rw [interior_eq_iff_open]
+  ... ↔ s ⊆ interior s : ⟨take h, by simph [subset.refl], subset.antisymm interior_subset⟩
+  ... ↔ (∀a∈s, nhds a ≤ principal s) : by rw [interior_eq_nhds]; refl
+
+lemma closure_eq_nhds {s : set α} : closure s = {a | nhds a ⊓ principal s ≠ ⊥} :=
+calc closure s = - interior (- s) : closure_eq_compl_interior_compl
+  ... = {a | ¬ nhds a ≤ principal (-s)} : by rw [interior_eq_nhds]; refl
+  ... = {a | nhds a ⊓ principal s ≠ ⊥} : set.ext $ take a, not_congr
+    (inf_eq_bot_iff_le_compl
+      (show principal s ⊔ principal (-s) = ⊤, by simp [principal_univ])
+      (by simp))^.symm
+
+lemma closed_iff_nhds {s : set α} : closed s ↔ (∀a, nhds a ⊓ principal s ≠ ⊥ → a ∈ s) :=
+calc closed s ↔ closure s = s : by rw [closure_eq_iff_closed]
+  ... ↔ closure s ⊆ s : ⟨take h, by simph [subset.refl], take h, subset.antisymm h subset_closure⟩
+  ... ↔ (∀a, nhds a ⊓ principal s ≠ ⊥ → a ∈ s) : by rw [closure_eq_nhds]; refl
 
 end topology

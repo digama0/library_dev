@@ -166,7 +166,7 @@ instance weak_order_filter : weak_order (filter α) :=
 
 instance : has_Sup (filter α) := ⟨join ∘ principal⟩
 
-instance inhbaited' : _root_.inhabited (filter α) :=
+instance inhabited' : _root_.inhabited (filter α) :=
 ⟨principal ∅⟩
 
 protected lemma le_Sup {s : set (filter α)} {f : filter α} : f ∈ s → f ≤ Sup s :=
@@ -274,15 +274,22 @@ in
     (show u ≤ infi f, from le_infi $ take i, le_supr (λi, (f i)^.sets) i)
     (Union_subset $ take i, infi_le f i)
 
+lemma infi_sets_eq' {f : β → filter α} {s : set β} (h : directed_on (λx y, f x ≤ f y) s) (ne : ∃i, i ∈ s) :
+  (⨅ i∈s, f i)^.sets = (⋃ i ∈ s, (f i)^.sets) :=
+let ⟨i, hi⟩ := ne in
+calc (⨅ i ∈ s, f i)^.sets  = (⨅ t : {t // t ∈ s}, (f t^.val))^.sets : by simp [infi_subtype]; refl
+  ... = (⨆ t : {t // t ∈ s}, (f t^.val)^.sets) : infi_sets_eq
+    (take ⟨x, hx⟩ ⟨y, hy⟩, match h x hx y hy with ⟨z, h₁, h₂, h₃⟩ := ⟨⟨z, h₁⟩, h₂, h₃⟩ end )
+    ⟨⟨i, hi⟩⟩
+  ... = (⨆ t ∈ {t | t ∈ s}, (f t)^.sets) : by simp [supr_subtype]; refl
+
 lemma Inf_sets_eq_finite {s : set (filter α)} :
   (complete_lattice.Inf s)^.sets = (⋃ t ∈ {t | finite t ∧ t ⊆ s}, (Inf t)^.sets) :=
 calc (Inf s)^.sets = (⨅ t ∈ { t | finite t ∧ t ⊆ s}, Inf t)^.sets : by rw [lattice.Inf_eq_finite_sets]
-  ... = (⨅ t : {t // finite t ∧ t ⊆ s}, (Inf t^.val))^.sets : by simp [infi_subtype]; refl
-  ... = (⨆ t : {t // finite t ∧ t ⊆ s}, (Inf t^.val)^.sets) : infi_sets_eq
-    (take ⟨x, hx₁, hx₂⟩ ⟨y, hy₁, hy₂⟩, ⟨⟨x ∪ y, finite_union hx₁ hy₁, union_subset hx₂ hy₂⟩, 
-      Inf_le_Inf $ subset_union_left _ _, Inf_le_Inf $ subset_union_right _ _⟩) 
-    ⟨⟨∅, by simp⟩⟩
-  ... = (⨆ t ∈ {t | finite t ∧ t ⊆ s}, (Inf t)^.sets) : by simp [supr_subtype]; refl
+  ... = (⨆ t ∈ {t | finite t ∧ t ⊆ s}, (Inf t)^.sets) : infi_sets_eq'
+    (take x ⟨hx₁, hx₂⟩ y ⟨hy₁, hy₂⟩, ⟨x ∪ y, ⟨finite_union hx₁ hy₁, union_subset hx₂ hy₂⟩,
+      Inf_le_Inf $ subset_union_left _ _, Inf_le_Inf $ subset_union_right _ _⟩)
+    ⟨∅, by simp⟩
 
 lemma supr_sets_eq {f : ι → filter α} : (supr f)^.sets = (⋂i, (f i)^.sets) :=
 set.ext $ take s, 

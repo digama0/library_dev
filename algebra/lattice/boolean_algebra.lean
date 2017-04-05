@@ -115,6 +115,10 @@ le_of_inf_eq $
   calc -x ⊓ -y = - (x ⊔ y) : neg_sup^.symm
            ... = -x        : congr_arg neg $ sup_of_le_left h
 
+lemma neg_le_neg_iff_le : - y ≤ - x ↔ x ≤ y :=
+⟨take h, by note h := neg_le_neg h; simp at h; assumption, 
+  neg_le_neg⟩
+
 lemma neg_le_of_neg_le (h : y ≤ - x) : x ≤ - y :=
 have - (- x) ≤ - y, from neg_le_neg h,
 by simp at this; assumption

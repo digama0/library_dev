@@ -205,6 +205,9 @@ by rw [union_comm, union_eq_self_of_subset_left h]
 lemma union_subset_iff {s t u : set α} : s ∪ t ⊆ u ↔ s ⊆ u ∧ t ⊆ u :=
 @sup_le_iff (set α) _ s t u
 
+theorem union_subset_union {s₁ s₂ t₁ t₂ : set α} (h₁ : s₁ ⊆ t₁) (h₂ : s₂ ⊆ t₂) : s₁ ∪ s₂ ⊆ t₁ ∪ t₂ :=
+@sup_le_sup (set α) _ _ _ _ _ h₁ h₂
+
 attribute [simp] union_comm union_assoc union_left_comm
 
 /- intersection -/
@@ -247,6 +250,9 @@ ext (take x, and_true _)
 
 theorem univ_inter (a : set α) : univ ∩ a = a :=
 ext (take x, true_and _)
+
+theorem inter_subset_inter {s₁ s₂ t₁ t₂ : set α} (h₁ : s₁ ⊆ t₁) (h₂ : s₂ ⊆ t₂) : s₁ ∩ s₂ ⊆ t₁ ∩ t₂ :=
+@inf_le_inf (set α) _ _ _ _ _ h₁ h₂
 
 theorem inter_subset_inter_right {s t : set α} (u : set α) (H : s ⊆ t) : s ∩ u ⊆ t ∩ u :=
 take x, assume xsu, and.intro (H (and.left xsu)) (and.right xsu)
@@ -813,6 +819,12 @@ Inf_le tS
 theorem subset_sUnion_of_mem {S : set (set α)} {t : set α} (tS : t ∈ S) : t ⊆ (⋃₀ S) :=
 le_Sup tS
 
+theorem sUnion_subset {S : set (set α)} {t : set α} (h : ∀t' ∈ S, t' ⊆ t) : (⋃₀ S) ⊆ t :=
+Sup_le h
+
+theorem subset_sInter {S : set (set α)} {t : set α} (h : ∀t' ∈ S, t ⊆ t') : t ⊆ (⋂₀ S) :=
+le_Inf h
+
 @[simp]
 theorem sUnion_empty : ⋃₀ ∅ = (∅ : set α) := Sup_empty
 
@@ -895,6 +907,10 @@ instance : complete_boolean_algebra (set α) :=
 
 lemma union_sdiff_same {a b : set α} : a ∪ (b - a) = a ∪ b :=
 lattice.sup_sub_same
+
+@[simp]
+lemma union_same_compl {a : set α} : a ∪ (-a) = univ :=
+sup_neg_eq_top
 
 @[simp]
 lemma sdiff_singleton_eq_same {a : α} {s : set α} (h : a ∉ s) : s - {a} = s :=

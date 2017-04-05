@@ -301,7 +301,7 @@ filter_eq $ set.ext $ take x, by simp [supr_sets_eq, join]
 lemma supr_join {ι : Sort w} {f : ι → filter (filter α)} : (⨆x, join (f x)) = join (⨆x, f x) :=
 filter_eq $ set.ext $ take x, by simp [supr_sets_eq, join]
 
-instance : distrib_lattice (filter α) :=
+instance : bounded_distrib_lattice (filter α) :=
 { filter.complete_lattice_filter with
   le_sup_inf := take x y z s h,
   begin
@@ -429,7 +429,7 @@ lemma bind_comm_le {β γ : Type u} {f : filter α} {g : filter β} {h : α → 
   (f >>= (λx, g >>= h x)) ≤ (g >>= (λy, f >>= (λx, h x y))) :=
 take x, begin simp [mem_bind_sets] end
 -/
-
+ 
 lemma principal_bind {β : Type u} {s : set α} {f : α → filter β} :
   (principal s >>= f) = (⨆x ∈ s, f x) :=
 show join (map f (principal s)) = (⨆x ∈ s, f x),

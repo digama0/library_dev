@@ -431,12 +431,6 @@ lemma bind_mono2 {β : Type u} {f g : filter α} {h : α → filter β} (h₁ : 
   f >>= h ≤ g >>= h :=
 take s h', h₁ h'
 
-/- requires choice -- prove later
-lemma bind_comm_le {β γ : Type u} {f : filter α} {g : filter β} {h : α → β → filter γ} :
-  (f >>= (λx, g >>= h x)) ≤ (g >>= (λy, f >>= (λx, h x y))) :=
-take x, begin simp [mem_bind_sets] end
--/
- 
 lemma principal_bind {β : Type u} {s : set α} {f : α → filter β} :
   (principal s >>= f) = (⨆x ∈ s, f x) :=
 show join (map f (principal s)) = (⨆x ∈ s, f x),
@@ -446,14 +440,18 @@ lemma seq_mono {β : Type u} {f₁ f₂ : filter (α → β)} {g₁ g₂ : filte
   (hf : f₁ ≤ f₂) (hg : g₁ ≤ g₂) : f₁ <*> g₁ ≤ f₂ <*> g₂ :=
 le_trans (bind_mono2 hf) (bind_mono $ univ_mem_sets' $ take f, map_mono hg)
 
-/- towards -/
-
-def towards (f : α → β) (l₁ : filter α) (l₂ : filter β) :=
-filter.map f l₁ ≤ l₂
-
 @[simp]
 lemma fmap_principal {β : Type u} {s : set α} {f : α → β} :
   f <$> principal s = principal (set.image f s) :=
 filter_eq $ set.ext $ take a, image_subset_iff_subset_vimage^.symm
+
+lemma mem_return_sets {a : α} {s : set α} : s ∈ (return a : filter α)^.sets ↔ a ∈ s :=
+show s ∈ (principal {a})^.sets ↔ a ∈ s,
+  by simp
+
+/- towards -/
+
+def towards (f : α → β) (l₁ : filter α) (l₂ : filter β) :=
+filter.map f l₁ ≤ l₂
 
 end filter

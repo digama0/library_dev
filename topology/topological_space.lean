@@ -66,26 +66,26 @@ set.ext $ take x, ⟨take ⟨y, (hy : p y), (h_eq : -y = x)⟩,
 lemma neg_subset_neg_iff_subset {α : Type u} {x y : set α} : - y ⊆ - x ↔ x ⊆ y :=
 @neg_le_neg_iff_le (set α) _ _ _
 
-class topology (α : Type u) :=
+class topological_space (α : Type u) :=
 (open'       : set α → Prop)
 (open_univ   : open' univ)
 (open_inter  : ∀s t, open' s → open' t → open' (s ∩ t))
 (open_sUnion : ∀s, (∀t∈s, open' t) → open' (⋃₀ s))
 
-section topology
+section topological_space
 
 variables {α : Type u} {β : Type v} {ι : Sort w} {a a₁ a₂ : α} {s s₁ s₂ : set α}
-variables [topology α]
+variables [topological_space α]
 
 /- open -/
-def open' (s : set α) : Prop := topology.open' s
+def open' (s : set α) : Prop := topological_space.open' s
 
 @[simp]
-lemma open_univ : open' (univ : set α) := topology.open_univ α
+lemma open_univ : open' (univ : set α) := topological_space.open_univ α
 
-lemma open_inter (h₁ : open' s₁) (h₂ : open' s₂) : open' (s₁ ∩ s₂) := topology.open_inter s₁ s₂ h₁ h₂
+lemma open_inter (h₁ : open' s₁) (h₂ : open' s₂) : open' (s₁ ∩ s₂) := topological_space.open_inter s₁ s₂ h₁ h₂
 
-lemma open_sUnion {s : set (set α)} (h : ∀t ∈ s, open' t) : open' (⋃₀ s) := topology.open_sUnion s h
+lemma open_sUnion {s : set (set α)} (h : ∀t ∈ s, open' t) : open' (⋃₀ s) := topological_space.open_sUnion s h
 
 lemma open_Union {f : ι → set α} (h : ∀i, open' (f i)) : open' (⋃i, f i) :=
 open_sUnion $ take t ⟨i, (heq : t = f i)⟩, heq^.symm ▸ h i
@@ -293,4 +293,4 @@ calc closed s ↔ closure s = s : by rw [closure_eq_iff_closed]
   ... ↔ closure s ⊆ s : ⟨take h, by simph [subset.refl], take h, subset.antisymm h subset_closure⟩
   ... ↔ (∀a, nhds a ⊓ principal s ≠ ⊥ → a ∈ s) : by rw [closure_eq_nhds]; refl
 
-end topology
+end topological_space

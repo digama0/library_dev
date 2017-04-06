@@ -113,20 +113,14 @@ calc prod.mk <$> nhds a <*> nhds a ≤
   ... ≤ uniformity : transitive_uniformity
 
 def Cauchy (α : Type u) [uniform_space α] : Type u := { f : filter α // cauchy f ∧ f ≠ bot }
-/-
+
+#exit
+
 def completion_space : uniform_space (Cauchy α) :=
 { uniformity              := ⨅ s ∈ uniformity^.sets,
-    principal {p : Cauchy α × Cauchy α | @prod.mk α α <$> p.1^.val <*> p.2^.val ≤ principal s },
-  principal_le_uniformity := le_infi $ take s, le_infi $ take h,
-  begin
-    simp,
-    intros a a' h, subst h,
-    exact a^.property^.left h
-  end,
-  swap_uniformity_le      := le_infi $ take s, le_infi $ take h, le_trans
-    (map_mono $ infi_le_of_le _ $ infi_le _ $ swap_uniformity_le h) 
-    begin simp [image_subset_iff_subset_vimage] end,
+    principal {p : Cauchy α × Cauchy α | ∃t, t ∈ p.1^.val^.sets },
+  principal_le_uniformity := le_infi $ take s, le_infi $ take h, _,
+  swap_uniformity_le      := le_infi $ take s, le_infi $ take h, _,
   transitive              := _ }
--/
 
 end uniform_space

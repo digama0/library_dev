@@ -10,6 +10,35 @@ open set filter lattice
 
 universes u v w
 
+def vimage {α : Type u} {β : Type v} (f : α → β) (s : set β) : set α := {x | f x ∈ s}
+
+section vimage
+variables {α : Type u} {β : Type v} {γ : Type w} {f : α → β} {g : β → γ}
+
+@[simp] lemma vimage_empty : vimage f ∅ = ∅ := rfl
+
+@[simp] lemma vimage_univ : vimage f univ = univ := rfl
+
+@[simp] lemma vimage_inter {s t : set β} : vimage f (s ∩ t) = vimage f s ∩ vimage f t := rfl
+
+@[simp] lemma vimage_union {s t : set β} : vimage f (s ∪ t) = vimage f s ∪ vimage f t := rfl
+
+@[simp] lemma vimage_compl {s : set β} : vimage f (- s) = - vimage f s := rfl
+
+@[simp] lemma vimage_Union {ι : Sort w} {f : α → β} {s : ι → set β} :
+  vimage f (⋃i, s i) = (⋃i, vimage f (s i)) :=
+set.ext $ by simp [vimage]
+
+@[simp] lemma vimage_sUnion {f : α → β} {s : set (set β)} :
+  vimage f (⋃₀ s) = (⋃t ∈ s, vimage f t) :=
+set.ext $ by simp [vimage]
+
+lemma vimage_id {s : set α} : vimage id s = s := rfl
+
+lemma vimage_comp {s : set γ} : vimage (g ∘ f) s = vimage f (vimage g s) := rfl
+
+end vimage
+
 @[simp]
 lemma not_not_mem_iff {α : Type u} {a : α} {s : set α} : ¬ (a ∉ s) ↔ a ∈ s :=
 classical.not_not_iff _
@@ -66,26 +95,39 @@ set.ext $ take x, ⟨take ⟨y, (hy : p y), (h_eq : -y = x)⟩,
 lemma neg_subset_neg_iff_subset {α : Type u} {x y : set α} : - y ⊆ - x ↔ x ⊆ y :=
 @neg_le_neg_iff_le (set α) _ _ _
 
-class topological_space (α : Type u) :=
+lemma sUnion_eq_Union {α : Type u} {s : set (set α)} :
+  (⋃₀ s) = (⋃ (i : set α) (h : i ∈ s), i) :=
+set.ext $ by simp
+
+structure topological_space (α : Type u) :=
 (open'       : set α → Prop)
 (open_univ   : open' univ)
 (open_inter  : ∀s t, open' s → open' t → open' (s ∩ t))
 (open_sUnion : ∀s, (∀t∈s, open' t) → open' (⋃₀ s))
 
+attribute [class] topological_space
+
 section topological_space
 
 variables {α : Type u} {β : Type v} {ι : Sort w} {a a₁ a₂ : α} {s s₁ s₂ : set α}
-variables [topological_space α]
+
+section
+variables [t : topological_space α]
+include t
 
 /- open -/
-def open' (s : set α) : Prop := topological_space.open' s
+def open' (s : set α) : Prop := topological_space.open' t s
 
 @[simp]
-lemma open_univ : open' (univ : set α) := topological_space.open_univ α
+lemma open_univ : open' (univ : set α) := topological_space.open_univ t
 
-lemma open_inter (h₁ : open' s₁) (h₂ : open' s₂) : open' (s₁ ∩ s₂) := topological_space.open_inter s₁ s₂ h₁ h₂
+lemma open_inter (h₁ : open' s₁) (h₂ : open' s₂) : open' (s₁ ∩ s₂) := topological_space.open_inter t s₁ s₂ h₁ h₂
 
-lemma open_sUnion {s : set (set α)} (h : ∀t ∈ s, open' t) : open' (⋃₀ s) := topological_space.open_sUnion s h
+lemma open_sUnion {s : set (set α)} (h : ∀t ∈ s, open' t) : open' (⋃₀ s) := topological_space.open_sUnion t s h
+
+end
+
+variables [topological_space α]
 
 lemma open_Union {f : ι → set α} (h : ∀i, open' (f i)) : open' (⋃i, f i) :=
 open_sUnion $ take t ⟨i, (heq : t = f i)⟩, heq^.symm ▸ h i
@@ -294,3 +336,132 @@ calc closed s ↔ closure s = s : by rw [closure_eq_iff_closed]
   ... ↔ (∀a, nhds a ⊓ principal s ≠ ⊥ → a ∈ s) : by rw [closure_eq_nhds]; refl
 
 end topological_space
+
+section constructions
+
+variables {α : Type u} {β : Type v}
+
+lemma topological_space_eq : 
+  ∀{f g : topological_space α}, f^.open' = g^.open' → f = g :=
+begin
+  intros f g h', cases f with a, cases g with b,
+  assert h : a = b, assumption,
+  clear h',
+  subst h
+end
+
+instance : weak_order (topological_space α) :=
+{ weak_order .
+  le            := λt s, t^.open' ≤ s^.open',
+  le_antisymm   := take t s h₁ h₂, topological_space_eq $ le_antisymm h₁ h₂,
+  le_refl       := take t, le_refl t^.open',
+  le_trans      := take a b c h₁ h₂, @le_trans _ _ a^.open' b^.open' c^.open' h₁ h₂ }
+
+instance : has_Inf (topological_space α) :=
+⟨take (tt : set (topological_space α)), { topological_space .
+  open' := λs, ∀t∈tt, topological_space.open' t s,
+  open_univ   := take t h, t^.open_univ,
+  open_inter  := take s₁ s₂ h₁ h₂ t ht, t^.open_inter s₁ s₂ (h₁ t ht) (h₂ t ht),
+  open_sUnion := take s h t ht, t^.open_sUnion _ $ take s' hss', h _ hss' _ ht }⟩
+
+private lemma Inf_le {tt : set (topological_space α)} {t : topological_space α} (h : t ∈ tt) :
+  Inf tt ≤ t :=
+take s hs, hs t h
+
+private lemma le_Inf {tt : set (topological_space α)} {t : topological_space α} (h : ∀t'∈tt, t ≤ t') :
+  t ≤ Inf tt :=
+take s hs t' ht', h t' ht' s hs
+
+def topological_space.induced {α : Type u} {β : Type v} (f : α → β) (t : topological_space β) :
+  topological_space α :=
+{ topological_space .
+  open'       := λs, ∃s', t^.open' s' ∧ s = vimage f s',
+  open_univ   := ⟨univ, by simp; exact t^.open_univ⟩,
+  open_inter  := take s₁ s₂ ⟨s'₁, hs₁, eq₁⟩ ⟨s'₂, hs₂, eq₂⟩,
+    ⟨s'₁ ∩ s'₂, by simp [eq₁, eq₂]; exact t^.open_inter _ _ hs₁ hs₂⟩,
+  open_sUnion := take s h,
+  begin
+    simp [classical.skolem] at h,
+    cases h with f hf,
+    apply exists.intro (⋃(x : set α) (h : x ∈ s), f x h),
+    simp [sUnion_eq_Union, (λx h, (hf x h)^.right^.symm)],
+    exact (@open_Union β _ t _ $ take i,
+      show open' (⋃h, f i h), from @open_Union β _ t _ $ take h, (hf i h)^.left)
+  end }
+
+def topological_space.coinduced {α : Type u} {β : Type v} (f : α → β) (t : topological_space α) :
+  topological_space β :=
+{ topological_space .
+  open'       := λs, t^.open' (vimage f s),
+  open_univ   := by simp; exact t^.open_univ,
+  open_inter  := take s₁ s₂ h₁ h₂, by simp; exact t^.open_inter _ _ h₁ h₂,
+  open_sUnion := take s h, by simp; exact (@open_Union _ _ t _ $ take i,
+    show open' (⋃ (H : i ∈ s), vimage f i), from
+      @open_Union _ _ t _ $ take hi, h i hi) }
+
+instance : has_inf (topological_space α) :=
+⟨take t₁ t₂ : topological_space α, { topological_space .
+  open'       := λs, t₁.open' s ∧ t₂.open' s,
+  open_univ   := ⟨t₁^.open_univ, t₂^.open_univ⟩,
+  open_inter  := take s₁ s₂ ⟨h₁₁, h₁₂⟩ ⟨h₂₁, h₂₂⟩, ⟨t₁.open_inter s₁ s₂ h₁₁ h₂₁, t₂.open_inter s₁ s₂ h₁₂ h₂₂⟩,
+  open_sUnion := take s h, ⟨t₁.open_sUnion _ $ take t ht, (h t ht).left, t₂.open_sUnion _ $ take t ht, (h t ht).right⟩ }⟩
+
+instance : has_top (topological_space α) :=
+⟨{topological_space .
+  open'       := λs, true,
+  open_univ   := trivial,
+  open_inter  := take a b ha hb, trivial,
+  open_sUnion := take s h, trivial }⟩
+
+instance {α : Type u} : complete_lattice (topological_space α) :=
+{ topological_space.weak_order with
+  sup           := λa b, Inf {x | a ≤ x ∧ b ≤ x},
+  le_sup_left   := take a b, le_Inf $ take x, assume h : a ≤ x ∧ b ≤ x, h^.left,
+  le_sup_right  := take a b, le_Inf $ take x, assume h : a ≤ x ∧ b ≤ x, h^.right,
+  sup_le        := take a b c h₁ h₂, Inf_le $ show c ∈ {x | a ≤ x ∧ b ≤ x}, from ⟨h₁, h₂⟩,
+  inf           := inf,
+  le_inf        := take a b h h₁ h₂ s hs, ⟨h₁ s hs, h₂ s hs⟩,
+  inf_le_left   := take a b s ⟨h₁, h₂⟩, h₁,
+  inf_le_right  := take a b s ⟨h₁, h₂⟩, h₂,
+  top           := top,
+  le_top        := take a t ht, trivial,
+  bot           := Inf univ,
+  bot_le        := take a, Inf_le $ mem_univ a,
+  Sup           := λtt, Inf {t | ∀t'∈tt, t' ≤ t},
+  le_Sup        := take s f h, le_Inf $ take t ht, ht _ h,
+  Sup_le        := take s f h, Inf_le $ take t ht, h _ ht,
+  Inf           := Inf,
+  le_Inf        := take s a, le_Inf,
+  Inf_le        := take s a, Inf_le }
+
+instance inhabited_topological_space {α : Type u} : inhabited (topological_space α) :=
+⟨⊤⟩
+
+instance : topological_space empty := ⊤
+instance : topological_space unit := ⊤
+instance : topological_space bool := ⊤
+instance : topological_space ℕ := ⊤
+instance : topological_space ℤ := ⊤
+
+instance sierpinski_space : topological_space Prop :=
+{ topological_space .
+  open'       := take s, false ∈ s → true ∈ s,
+  open_univ   := take h, mem_univ true,
+  open_inter  := take s t, and.imp,
+  open_sUnion := take s hs, by simp; exact take ⟨t, ht, hts⟩, ⟨t, hs t hts ht, hts⟩ }
+
+instance {p : α → Prop} [t : topological_space α] : topological_space (subtype p) :=
+topological_space.induced subtype.val t
+
+instance [t₁ : topological_space α] [t₂ : topological_space β] : topological_space (α × β) :=
+topological_space.induced prod.fst t₁ ⊔ topological_space.induced prod.snd t₂
+
+instance [t₁ : topological_space α] [t₂ : topological_space β] : topological_space (α ⊕ β) :=
+topological_space.coinduced sum.inl t₁ ⊓ topological_space.coinduced sum.inr t₂
+
+/- Fiber bundles?
+instance {β : α → Type v} [t : Π(a:α), topological_space (β a)] : topological_space (sigma β) :=
+_
+-/
+
+end constructions

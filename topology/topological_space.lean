@@ -17,6 +17,11 @@ variables {α : Type u} {β : Type v} {γ : Type w} {f : α → β} {g : β → 
 
 @[simp] lemma vimage_empty : vimage f ∅ = ∅ := rfl
 
+@[simp] lemma mem_vimage_eq {s : set β} {a : α} : (a ∈ vimage f s) = (f a ∈ s) := rfl
+
+lemma vimage_mono {s t : set β} (h : s ⊆ t) : vimage f s ⊆ vimage f t :=
+take x hx, h hx
+
 @[simp] lemma vimage_univ : vimage f univ = univ := rfl
 
 @[simp] lemma vimage_inter {s t : set β} : vimage f (s ∩ t) = vimage f s ∩ vimage f t := rfl
@@ -36,6 +41,11 @@ set.ext $ by simp [vimage]
 lemma vimage_id {s : set α} : vimage id s = s := rfl
 
 lemma vimage_comp {s : set γ} : vimage (g ∘ f) s = vimage f (vimage g s) := rfl
+
+lemma eq_vimage_subtype_val_iff {p : α → Prop} {s : set (subtype p)} {t : set α} :
+  s = vimage subtype.val t ↔ (∀x (h : p x), (⟨x, h⟩ : subtype p) ∈ s ↔ x ∈ t) :=
+⟨ take s_eq x h, by rw [s_eq]; simp
+, take h, set.ext $ take ⟨x, hx⟩, by simp [h]⟩
 
 end vimage
 
@@ -293,16 +303,16 @@ def nhds (a : α) : filter α := (⨅ s ∈ {s : set α | a ∈ s ∧ open' s}, 
 
 lemma nhds_sets {a : α} : (nhds a)^.sets = {s | ∃t⊆s, open' t ∧ a ∈ t} := 
 calc (nhds a)^.sets = (⋃s∈{s : set α| a ∈ s ∧ open' s}, (principal s)^.sets) : infi_sets_eq'
-    begin
-      simp,
-      exact take x ⟨hx₁, hx₂⟩ y ⟨hy₁, hy₂⟩, ⟨_, ⟨open_inter hx₁ hy₁, ⟨hx₂, hy₂⟩⟩,
-        ⟨inter_subset_left _ _, inter_subset_right _ _⟩⟩
-    end
-    ⟨univ, by simp⟩
+  begin
+    simp,
+    exact take x ⟨hx₁, hx₂⟩ y ⟨hy₁, hy₂⟩, ⟨_, ⟨open_inter hx₁ hy₁, ⟨hx₂, hy₂⟩⟩,
+      ⟨inter_subset_left _ _, inter_subset_right _ _⟩⟩
+  end
+  ⟨univ, by simp⟩
   ... = {s | ∃t⊆s, open' t ∧ a ∈ t} :
-   le_antisymm
-     (supr_le $ take i, supr_le $ take ⟨hi₁, hi₂⟩ t ht, ⟨i, ht, hi₂, hi₁⟩)
-     (take t ⟨i, hi₁, hi₂, hi₃⟩, begin simp; exact ⟨i, hi₂, hi₁, hi₃⟩ end)
+    le_antisymm
+      (supr_le $ take i, supr_le $ take ⟨hi₁, hi₂⟩ t ht, ⟨i, ht, hi₂, hi₁⟩)
+      (take t ⟨i, hi₁, hi₂, hi₃⟩, begin simp; exact ⟨i, hi₂, hi₁, hi₃⟩ end)
 
 lemma return_le_nhds : return ≤ (nhds : α → filter α) :=
 take a, le_infi $ take s, le_infi $ take ⟨h₁, _⟩, principal_mono^.mpr $ by simp [h₁]
@@ -334,6 +344,42 @@ lemma closed_iff_nhds {s : set α} : closed s ↔ (∀a, nhds a ⊓ principal s 
 calc closed s ↔ closure s = s : by rw [closure_eq_iff_closed]
   ... ↔ closure s ⊆ s : ⟨take h, by simph [subset.refl], take h, subset.antisymm h subset_closure⟩
   ... ↔ (∀a, nhds a ⊓ principal s ≠ ⊥ → a ∈ s) : by rw [closure_eq_nhds]; refl
+
+/- locally finite family [General Topology (Bourbaki, 1995)] -/
+section locally_finite
+
+def locally_finite (f : β → set α) :=
+∀x:α, ∃t∈(nhds x)^.sets, finite {i | f i ∩ t ≠ ∅ }
+
+theorem not_eq_empty_iff_exists {s : set α} : ¬ (s = ∅) ↔ ∃ x, x ∈ s :=
+⟨exists_mem_of_ne_empty,
+  take ⟨x, (hx : x ∈ s)⟩ h_eq, by rw [h_eq] at hx; assumption⟩
+
+lemma closed_Union_of_locally_finite {f : β → set α}
+  (h₁ : locally_finite f) (h₂ : ∀i, closed (f i)) : closed (⋃i, f i) :=
+open_iff_nhds^.mpr $ take a, assume h : a ∉ (⋃i, f i),
+  have ∀i, a ∈ -f i,
+    from take i hi, by simp at h; exact h ⟨i, hi⟩,
+  have ∀i, - f i ∈ (nhds a).sets,
+    by rw [nhds_sets]; exact take i, ⟨- f i, subset.refl _, h₂ i, this i⟩,
+  let ⟨t, h_sets, (h_fin : finite {i | f i ∩ t ≠ ∅ })⟩ := h₁ a in
+
+  calc nhds a ≤ principal (t ∩ (⋂ i∈{i | f i ∩ t ≠ ∅ }, - f i)) :
+  begin
+    simp,
+    apply @filter.inter_mem_sets _ (nhds a) _ _ h_sets,
+    apply @filter.Inter_mem_sets _ _ (nhds a) _ _ h_fin,
+    exact take i h, this i
+  end
+  ... ≤ principal (- ⋃i, f i) :
+  begin
+    simp,
+    intro x,
+    simp [not_eq_empty_iff_exists],
+    exact take ⟨xt, ht⟩ i xfi, ht i ⟨x, xt, xfi⟩ xfi
+  end
+
+end locally_finite
 
 end topological_space
 
@@ -459,9 +505,10 @@ topological_space.induced prod.fst t₁ ⊔ topological_space.induced prod.snd t
 instance [t₁ : topological_space α] [t₂ : topological_space β] : topological_space (α ⊕ β) :=
 topological_space.coinduced sum.inl t₁ ⊓ topological_space.coinduced sum.inr t₂
 
-/- Fiber bundles?
-instance {β : α → Type v} [t : Π(a:α), topological_space (β a)] : topological_space (sigma β) :=
-_
--/
+instance {β : α → Type v} [t₂ : Πa, topological_space (β a)] : topological_space (sigma β) :=
+⨅a, topological_space.coinduced (sigma.mk a) (t₂ a)
+
+instance topological_space_Pi {β : α → Type v} [t₂ : Πa, topological_space (β a)] : topological_space (Πa, β a) :=
+⨆a, topological_space.induced (λf, f a) (t₂ a)
 
 end constructions

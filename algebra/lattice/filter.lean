@@ -6,7 +6,6 @@ Authors: Johannes Hölzl
 Theory of filters on sets.
 -/
 import .complete_lattice ...data.set
-
 open lattice set
 
 universes u v w
@@ -94,6 +93,20 @@ lemma inter_mem_sets {f : filter α} {x y : set α} (hx : x ∈ f^.sets) (hy : y
   x ∩ y ∈ f^.sets :=
 let ⟨z, ⟨z_in_s, z_le_x, z_le_y⟩⟩ := f^.directed_sets _ hx _ hy in
 f^.upwards_sets z_in_s (subset_inter z_le_x z_le_y)
+
+lemma Inter_mem_sets {f : filter α} {s : β → set α}
+  {is : set β} (hf : finite is) (hs : ∀i∈is, s i ∈ f^.sets) : (⋂i∈is, s i) ∈ f^.sets :=
+begin /- equation compiler complains that this is requires well-founded recursion -/
+  induction hf with i is _ hf hi,
+  { simp [univ_mem_sets] },
+  begin
+    simp,
+    apply inter_mem_sets,
+    apply hs i,
+    simp,
+    exact (hi $ take a ha, hs _ $ by simp [ha])
+  end
+end
 
 lemma exists_sets_subset_iff {f : filter α} {x : set α} :
   (∃y∈f^.sets, y ⊆ x) ↔ x ∈ f^.sets :=

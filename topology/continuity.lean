@@ -11,6 +11,22 @@ open set filter lattice
 universes u v w x
 variables {α : Type u} {β : Type v} {γ : Type w} {ι : Sort x}
 
+theorem classical.cases {p : Prop → Prop} (h1 : p true) (h2 : p false) : ∀a, p a :=
+take a, classical.cases_on a h1 h2
+
+lemma univ_eq_true_false : univ = ({true, false} : set Prop) :=
+eq.symm $ top_unique $ classical.cases (by simp) (by simp)
+
+@[simp]
+lemma false_neq_true : false ≠ true :=
+begin intro h, rw [h], trivial end
+
+lemma subtype.val_image {p : α → Prop} {s : set (subtype p)} :
+  subtype.val ' s = {x | ∃h : p x, (⟨x, h⟩ : subtype p) ∈ s} :=
+set.ext $ take a,
+⟨ take ⟨⟨a', ha'⟩, in_s, (h_eq : a' = a)⟩, h_eq ▸ ⟨ha', in_s⟩,
+  take ⟨ha, in_s⟩, ⟨⟨a, ha⟩, in_s, rfl⟩⟩
+
 section 
 variables [topological_space α] [topological_space β] [topological_space γ]
 
@@ -119,22 +135,34 @@ continuous_Inf_dom $ take t ⟨h₁, h₂⟩ s hs, h₂ _ $ h s hs
 
 end constructions
 
+section induced
+open topological_space
+
+variables [t : topological_space β] {a : α} {f : α → β}
+
+lemma map_nhds_induced_eq (h : image f univ ∈ (nhds (f a))^.sets) :
+  map f (@nhds α (induced f t) a) = nhds (f a) :=
+le_antisymm
+  ((@continuous_iff_towards α β (induced f t) _ _)^.mp continuous_induced_dom a)
+  ( take s, assume hs : vimage f s ∈ (@nhds α (induced f t) a)^.sets,
+    let ⟨t', t_subset, open_t, a_in_t⟩ := mem_nhds_sets_iff^.mp h in
+    let ⟨s', s'_subset, ⟨s'', open_s'', s'_eq⟩, a_in_s'⟩ := (@mem_nhds_sets_iff _ (induced f t) _ _)^.mp hs in
+    by subst s'_eq; exact (mem_nhds_sets_iff^.mpr $
+      ⟨ t' ∩ s''
+      , take x ⟨h₁, h₂⟩, match x, h₂, t_subset h₁ with
+        | x, h₂, ⟨y, _, y_eq⟩ := begin subst y_eq, exact s'_subset h₂ end
+        end
+      , open_inter open_t open_s''
+      , ⟨a_in_t, a_in_s'⟩⟩))
+
+end induced
+
 section sierpinski
 variables [topological_space α]
 
 @[simp]
 lemma open_singleton_true : open' ({true} : set Prop) :=
 take h, show true ∈ {true}, by simp
-
-theorem classical.cases {p : Prop → Prop} (h1 : p true) (h2 : p false) : ∀a, p a :=
-take a, classical.cases_on a h1 h2
-
-lemma univ_eq_true_false : univ = ({true, false} : set Prop) :=
-eq.symm $ top_unique $ classical.cases (by simp) (by simp)
-
-@[simp]
-lemma false_neq_true : false ≠ true :=
-begin intro h, rw [h], trivial end
 
 lemma continuous_Prop {p : α → Prop} : continuous p ↔ open' {x | p x} :=
 ⟨ assume h : continuous p,
@@ -200,38 +228,21 @@ lemma continuous_subtype_mk {f : β → α}
   (hp : ∀x, p (f x)) (h : continuous f) : continuous (λx, (⟨f x, hp x⟩ : subtype p)) :=
 continuous_induced_rng h
 
-example {f : α → β} {c : ι → α → Prop}
-  (c_open  : ∀i, open' {x | c i x})
-  (c_cover : ∀x, ∃i, c i x)
+lemma map_nhds_subtype_val_eq {a : α} {ha : p a} (h : {a | p a} ∈ (nhds a)^.sets) :
+  map (@subtype.val α p) (nhds ⟨a, ha⟩) = nhds a :=
+map_nhds_induced_eq (by simp [subtype.val_image, h])
+
+lemma continuous_subtype_nhds_cover {f : α → β} {c : ι → α → Prop}
+  (c_cover : ∀x, ∃i, c i x ∧ {x | c i x} ∈ (nhds x)^.sets)
   (f_cont  : ∀i, continuous (λ(x : subtype (c i)), f x.val)) :
   continuous f :=
 continuous_iff_towards^.mpr $ take x, 
-  let ⟨i, (hi : c i x)⟩ := c_cover x in
-  have towards (λ(x : subtype (c i)), f x.val) (nhds ⟨x, hi⟩) (nhds (f x)),
-    begin note h := f_cont i, rw continuous_iff_towards at h, exact h ⟨x, hi⟩ end,
-  sorry -- map f (nhds a) = nhds (f a)when f injective
-
-
-lemma continuous_subtype_cover {f : α → β} {c : ι → α → Prop}
-  (c_open  : ∀i, open' {x | c i x})
-  (c_cover : ∀x, ∃i, c i x)
-  (f_cont  : ∀i, continuous (λ(x : subtype (c i)), f x.val)) :
-  continuous f :=
-take s, assume hs : open' s,
-
-have ∀i, ∃s', open' s' ∧ vimage (λ (x : subtype (c i)), f (x.val)) s = vimage subtype.val s',
-  from take i, f_cont i s hs,
-have ∃(s' : ι → set α), (∀i, open' (s' i)) ∧ (∀i x, c i x → (x ∈ vimage f s ↔ x ∈ s' i)),
-  by simp [classical.skolem, eq_vimage_subtype_val_iff, forall_and_comm] at this; assumption,
-let ⟨s', hs', h_iff⟩ := this in
-
-have vimage f s = (⋃i, s' i ∩ {x | c i x}),
-  from set.ext $ take x,
-  ⟨ let ⟨i, hi⟩ := c_cover x in take h, 
-    by simp; exact ⟨i, hi, (h_iff i x hi)^.mp h⟩
-  , by simp; exact take ⟨i, hi, hs⟩, (h_iff i x hi)^.mpr hs⟩,
-
-show open' (vimage f s),
-  by rw [this]; exact (open_Union $ take i, open_inter (hs' i) (c_open i))
+  let ⟨i, (hi : c i x), (c_sets : {x | c i x} ∈ (nhds x)^.sets)⟩ := c_cover x in
+  calc map f (nhds x) = map f (map (@subtype.val α (c i)) (nhds ⟨x, hi⟩)) :
+      congr_arg (map f) (map_nhds_subtype_val_eq $ c_sets)^.symm
+    ... = map (λ(x : subtype (c i)), f x.val) (nhds ⟨x, hi⟩) : rfl
+    ... ≤ (nhds (f x)) : continuous_iff_towards^.mp (f_cont i) ⟨x, hi⟩
 
 end subtype
+
+

@@ -131,7 +131,7 @@ def join (f : filter (filter α)) : filter α :=
 
 def map (m : α → β) (f : filter α) : filter β :=
 { filter .
-  sets          := {s | {x | m x ∈ s} ∈ f^.sets},
+  sets          := vimage (vimage m) f^.sets,
   inhabited     := ⟨univ, univ_mem_sets⟩,
   upwards_sets  := take s t hs st, f^.upwards_sets hs (take x h, st h),
   directed_sets := take s hs t ht, ⟨s ∩ t, inter_mem_sets hs ht,
@@ -247,7 +247,7 @@ instance monad_filter : monad filter :=
   id_map     := take α f, filter_eq $ rfl,
   pure_bind  := take α β a f, by simp [Sup_image],
   bind_assoc := take α β γ f m₁ m₂, filter_eq $ rfl,
-  bind_pure_comp_eq_map := take α β f x, filter_eq $ by simp [join, map, principal] }
+  bind_pure_comp_eq_map := take α β f x, filter_eq $ by simp [join, map, vimage, principal] }
 
 instance : alternative filter :=
 { filter.monad_filter with

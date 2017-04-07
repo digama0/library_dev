@@ -10,45 +10,6 @@ open set filter lattice
 
 universes u v w
 
-def vimage {α : Type u} {β : Type v} (f : α → β) (s : set β) : set α := {x | f x ∈ s}
-
-section vimage
-variables {α : Type u} {β : Type v} {γ : Type w} {f : α → β} {g : β → γ}
-
-@[simp] lemma vimage_empty : vimage f ∅ = ∅ := rfl
-
-@[simp] lemma mem_vimage_eq {s : set β} {a : α} : (a ∈ vimage f s) = (f a ∈ s) := rfl
-
-lemma vimage_mono {s t : set β} (h : s ⊆ t) : vimage f s ⊆ vimage f t :=
-take x hx, h hx
-
-@[simp] lemma vimage_univ : vimage f univ = univ := rfl
-
-@[simp] lemma vimage_inter {s t : set β} : vimage f (s ∩ t) = vimage f s ∩ vimage f t := rfl
-
-@[simp] lemma vimage_union {s t : set β} : vimage f (s ∪ t) = vimage f s ∪ vimage f t := rfl
-
-@[simp] lemma vimage_compl {s : set β} : vimage f (- s) = - vimage f s := rfl
-
-@[simp] lemma vimage_Union {ι : Sort w} {f : α → β} {s : ι → set β} :
-  vimage f (⋃i, s i) = (⋃i, vimage f (s i)) :=
-set.ext $ by simp [vimage]
-
-@[simp] lemma vimage_sUnion {f : α → β} {s : set (set β)} :
-  vimage f (⋃₀ s) = (⋃t ∈ s, vimage f t) :=
-set.ext $ by simp [vimage]
-
-lemma vimage_id {s : set α} : vimage id s = s := rfl
-
-lemma vimage_comp {s : set γ} : vimage (g ∘ f) s = vimage f (vimage g s) := rfl
-
-lemma eq_vimage_subtype_val_iff {p : α → Prop} {s : set (subtype p)} {t : set α} :
-  s = vimage subtype.val t ↔ (∀x (h : p x), (⟨x, h⟩ : subtype p) ∈ s ↔ x ∈ t) :=
-⟨ take s_eq x h, by rw [s_eq]; simp
-, take h, set.ext $ take ⟨x, hx⟩, by simp [h]⟩
-
-end vimage
-
 @[simp]
 lemma not_not_mem_iff {α : Type u} {a : α} {s : set α} : ¬ (a ∉ s) ↔ a ∈ s :=
 classical.not_not_iff _
@@ -313,6 +274,10 @@ calc (nhds a)^.sets = (⋃s∈{s : set α| a ∈ s ∧ open' s}, (principal s)^.
     le_antisymm
       (supr_le $ take i, supr_le $ take ⟨hi₁, hi₂⟩ t ht, ⟨i, ht, hi₂, hi₁⟩)
       (take t ⟨i, hi₁, hi₂, hi₃⟩, begin simp; exact ⟨i, hi₂, hi₁, hi₃⟩ end)
+
+lemma mem_nhds_sets_iff {a : α} {s : set α} :
+ s ∈ (nhds a)^.sets ↔ ∃t⊆s, open' t ∧ a ∈ t := 
+by simp [nhds_sets]
 
 lemma return_le_nhds : return ≤ (nhds : α → filter α) :=
 take a, le_infi $ take s, le_infi $ take ⟨h₁, _⟩, principal_mono^.mpr $ by simp [h₁]

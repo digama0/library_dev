@@ -26,7 +26,7 @@ instance : monad set :=
 lemma fmap_eq_image {f : α → β} {s : set α} : f <$> s = f ' s :=
 rfl
 
-lemma mem_seq {f : set (α → β)} {s : set α} {b : β} :
+lemma mem_seq_iff {f : set (α → β)} {s : set α} {b : β} :
   b ∈ (f <*> s) ↔ (∃(f' : α → β), ∃a ∈ s, f' ∈ f ∧ b = f' a) :=
 begin
   simp [seq_eq_bind_map, bind],
@@ -35,6 +35,55 @@ begin
   exact ⟨take ⟨hf', a, ha, h_eq⟩, ⟨a, h_eq^.symm, ha, hf'⟩,
     take ⟨a, h_eq, ha, hf'⟩, ⟨hf', a, ha, h_eq^.symm⟩⟩
 end
+
+lemma set.mem_prod_iff {s : set α} {t : set β} {p : α × β} :
+  p ∈ prod.mk <$> s <*> t ↔ (p.1 ∈ s ∧ p.2 ∈ t)  :=
+begin
+  cases p with a b,
+  simp [mem_seq_iff, fmap_eq_image, set.image],
+  exact ⟨take ⟨f, b', hb', ab_eq, a', ha', mka'_eq⟩,
+    begin
+      rw [-mka'_eq] at ab_eq,
+      rw [prod.mk.inj_iff] at ab_eq,
+      rw [ab_eq^.left, ab_eq^.right],
+      exact ⟨ha', hb'⟩
+    end,
+    take ⟨ha, hb⟩, ⟨prod.mk a, b, hb, rfl, a, ha, rfl⟩⟩
+end
+
+lemma set.prod_comm {s : set α} {t : set β} :
+  {x : β × α | (x.snd, x.fst) ∈ prod.mk <$> s <*> t} = prod.mk <$> t <*> s :=
+set.ext $ by simp [set.mem_prod_iff]; intros; trivial
+
+namespace filter
+
+def prod (f : filter α) (g : filter β) : filter (α × β) :=
+⨅s ∈ f^.sets, ⨅t ∈ g^.sets, principal (prod.mk <$> s <*> t)
+
+lemma prod_mem_prod {s : set α} {t : set β} {f : filter α} {g : filter β} 
+  (hs : s ∈ f^.sets) (ht : t ∈ g^.sets) : prod.mk <$> s <*> t ∈ (prod f g)^.sets :=
+le_principal_iff^.mp $ show prod f g ≤ principal (prod.mk <$> s <*> t),
+  from infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le t $ infi_le _ ht
+
+lemma prod_mono {f₁ f₂ : filter α} {g₁ g₂ : filter β} (hf : f₁ ≤ f₂) (hg : g₁ ≤ g₂) :
+  prod f₁ g₁ ≤ prod f₂ g₂ :=
+infi_le_infi $ take s, infi_le_infi2 $ take hs, ⟨hf hs,
+  infi_le_infi $ take t, infi_le_infi2 $ take ht, ⟨hg ht, le_refl _⟩⟩
+
+lemma prod_le_comm {f : filter α} {g : filter β} : map (λp:β×α, (p.2, p.1)) (prod g f) ≤ prod f g :=
+le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht, 
+  by simp [set.prod_comm, prod_mem_prod, hs, ht]
+
+lemma prod_comm {f : filter α} {g : filter β} : prod f g = map (λp:β×α, (p.2, p.1)) (prod g f) :=
+le_antisymm
+  ( have ((λ (p : β × α), (p.snd, p.fst)) ∘ λ (p : α × β), (p.snd, p.fst)) = id, 
+      by apply funext; intro x; cases x; simp,
+    calc prod f g = (map (λp:β×α, (p.2, p.1)) ∘ map (λp:α×β, (p.2, p.1))) (prod f g) :
+        by simp [map_compose, this]
+      ... ≤ map (λp:β×α, (p.2, p.1)) (prod g f) : map_mono $ prod_le_comm)
+  prod_le_comm
+
+end filter
 
 /- uniformity -/
 
@@ -80,15 +129,23 @@ calc pure x ≤ (principal {p : α × α | p.1 = p.2} >>= λp, principal {y | p 
   ... <= nhds x : bind_mono2 principal_le_uniformity
 
 /- cauchy filters -/
-definition cauchy (f : filter α) : Prop := prod.mk <$> f <*> f ≤ uniformity
+definition cauchy (f : filter α) : Prop := filter.prod f f ≤ uniformity
 
 lemma cauchy_downwards {f g : filter α} (h_c : cauchy f) (h_le : g ≤ f) : cauchy g :=
-le_trans (seq_mono (map_mono h_le) h_le) h_c
+le_trans (filter.prod_mono h_le h_le) h_c
 
 lemma cauchy_nhds {a : α} : cauchy (nhds a) :=
-calc prod.mk <$> nhds a <*> nhds a ≤
-    do { p₁ ← (λx : α × α, (x.2, x.1)) <$> uniformity, p₂ ← uniformity,
-      principal {p | p = (p₁.2, p₂.2) ∧ p₁.1 = a ∧ p₂.1 = a} } :
+calc filter.prod (nhds a) (nhds a) ≤
+  do {
+    p₁ ← (λx : α × α, (x.2, x.1)) <$> uniformity,
+    p₂ ← uniformity,
+    principal {p | p = (p₁.2, p₂.2) ∧ p₁.1 = a ∧ p₂.1 = a} } :
+  begin
+    intro s,
+    simp [mem_bind_sets],
+    exact take ⟨d, hd, _⟩, _
+  end
+/-
   begin -- should be done by auto
     rw [-uniformity_eq_swap],
     simp [nhds, map_bind, bind_assoc, seq_eq_bind_map, principal_bind],
@@ -102,6 +159,7 @@ calc prod.mk <$> nhds a <*> nhds a ≤
     intros a₃ a₄ a₅, intro h, cases h with h₁ h₂, subst h₁, subst h₂,
     simp
   end
+-/
   ... ≤ (do p₁ ← uniformity, p₂ ← uniformity, principal {p | p = (p₁.1, p₂.2) ∧ p₁.2 = p₂.1}) :
   begin -- should be done by auto
     simp [seq_bind_eq],
@@ -112,15 +170,23 @@ calc prod.mk <$> nhds a <*> nhds a ≤
   end
   ... ≤ uniformity : transitive_uniformity
 
-def Cauchy (α : Type u) [uniform_space α] : Type u := { f : filter α // cauchy f ∧ f ≠ bot }
-
 #exit
 
+def Cauchy (α : Type u) [uniform_space α] : Type u := { f : filter α // cauchy f ∧ f ≠ bot }
+
+def Cauchy.uniformity (α : Type u) [uniform_space α] : filter (Cauchy α × Cauchy α) :=
+⨅ s ∈ (@uniformity α _)^.sets, principal {p : Cauchy α × Cauchy α | ∃(t : set α),
+  t ∈ (p.1^.val ⊓ p.2^.val)^.sets ∧ (@prod.mk α α) <$> t <*> t ⊆ s}
+
 def completion_space : uniform_space (Cauchy α) :=
-{ uniformity              := ⨅ s ∈ uniformity^.sets,
-    principal {p : Cauchy α × Cauchy α | ∃t, t ∈ p.1^.val^.sets },
-  principal_le_uniformity := le_infi $ take s, le_infi $ take h, _,
-  swap_uniformity_le      := le_infi $ take s, le_infi $ take h, _,
+{ uniformity              := Cauchy.uniformity α,
+  principal_le_uniformity := le_infi $ take s, le_infi $ take h,
+  begin
+    simp,
+    intros a b h_ab, subst h_ab,
+    note h' := a^.property^.left h,
+  end,
+  swap_uniformity_le      := _, -- le_infi $ take s, le_infi $ take h, _,
   transitive              := _ }
 
 end uniform_space

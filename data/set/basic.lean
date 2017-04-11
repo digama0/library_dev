@@ -936,6 +936,8 @@ variables {f : α → β} {g : β → γ}
 lemma vimage_mono {s t : set β} (h : s ⊆ t) : vimage f s ⊆ vimage f t :=
 take x hx, h hx
 
+lemma monotone_vimage : monotone (vimage f) := take a b h, vimage_mono h
+
 @[simp] lemma vimage_univ : vimage f univ = univ := rfl
 
 @[simp] lemma vimage_inter {s t : set β} : vimage f (s ∩ t) = vimage f s ∩ vimage f t := rfl

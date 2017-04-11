@@ -83,7 +83,7 @@ end
 
 end
 
-variables {α : Type u} {β : Type v}
+variables {α : Type u} {β : Type v} {γ : Type w}
 
 protected def prod (s : set α) (t : set β) : set (α × β) :=
 {p | p.1 ∈ s ∧ p.2 ∈ t}
@@ -95,6 +95,10 @@ rfl
 lemma prod_mono {s₁ s₂ : set α} {t₁ t₂ : set β} (hs : s₁ ⊆ s₂) (ht : t₁ ⊆ t₂) :
   set.prod s₁ t₁ ⊆ set.prod s₂ t₂ :=
 take x ⟨h₁, h₂⟩, ⟨hs h₁, ht h₂⟩
+
+lemma monotone_prod [weak_order α] {f : α → set β} {g : α → set γ}
+  (hf : monotone f) (hg : monotone g) : monotone (λx, set.prod (f x) (g x)) :=
+take a b h, prod_mono (hf h) (hg h)
 
 lemma image_swap_prod {s : set α} {t : set β} :
   image (λp:β×α, (p.2, p.1)) (set.prod t s) = set.prod s t :=
@@ -588,6 +592,10 @@ le_antisymm
   (infi_le_of_le s $ infi_le _ $ subset.refl _)
   (le_infi $ take t, le_infi $ take hi, hg hi)
 
+lemma monotone_lift [weak_order γ] {f : γ → filter α} {g : γ → set α → filter β} 
+  (hf : monotone f) (hg : monotone g) : monotone (λc, (f c)^.lift (g c)) :=
+take a b h, lift_mono (hf h) (hg h)
+
 end
 
 section
@@ -612,6 +620,14 @@ calc map m (f^.lift' h) = f^.lift (map m ∘ principal ∘ h) :
 lemma lift'_principal {s : set α} (hh : monotone h) :
   (principal s)^.lift' h = principal (h s) :=
 lift_principal $ monotone_comp hh monotone_principal
+
+lemma principal_le_lift' {t : set β} (hh : ∀s∈f^.sets, t ⊆ h s) :
+  principal t ≤ f^.lift' h :=
+le_infi $ take s, le_infi $ take hs, principal_mono^.mpr (hh s hs)
+
+lemma monotone_lift' [weak_order γ] {f : γ → filter α} {g : γ → set α → set β} 
+  (hf : monotone f) (hg : monotone g) : monotone (λc, (f c)^.lift' (g c)) :=
+take a b h, lift'_mono (hf h) (hg h)
 
 end
 

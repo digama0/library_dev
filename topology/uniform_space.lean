@@ -72,7 +72,19 @@ le_trans (filter.prod_mono h_le h_le) h_c
 lemma cauchy_nhds {a : α} : cauchy (nhds a) :=
 calc filter.prod (nhds a) (nhds a) ≤ uniformity^.lift (λs:set (α×α), uniformity^.lift' (trans_rel s)) :
   begin
-    simp [filter.prod, nhds]
+    simp [filter.prod, filter.lift', nhds],
+    rw [lift_assoc],
+    apply filter.lift_mono (le_refl _),
+    intro s,
+    dsimp,
+    rw [lift_principal],
+    rw [lift_assoc],
+    apply filter.lift_mono (le_refl _),
+    intro t,
+    dsimp,
+    rw [lift_principal],
+    simp,
+    exact take ⟨a, b⟩ ⟨h₁, h₂⟩, _
   end
   ... ≤ uniformity : trans_le_uniformity
 

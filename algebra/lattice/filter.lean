@@ -10,38 +10,6 @@ open lattice set
 
 universes u v w
 
-namespace lattice
-variables {α : Type u} [complete_lattice α]
-
-lemma Inf_eq_finite_sets {s : set α} :
-  Inf s = (⨅ t ∈ { t | finite t ∧ t ⊆ s}, Inf t) :=
-le_antisymm 
-  (le_infi $ take t, le_infi $ take ⟨_, h⟩, Inf_le_Inf h)
-  (le_Inf $ take b h, infi_le_of_le {b} $ infi_le_of_le (by simp [h]) $ Inf_le $ by simp)
-
-end lattice
-
-section order
-variables {α : Type u} (r : α → α → Prop)
-local infix `≼` : 50 := r
-
-def directed {ι : Sort v} (f : ι → α) := ∀x, ∀y, ∃z, f z ≼ f x ∧ f z ≼ f y
-def directed_on (s : set α) := ∀x ∈ s, ∀y ∈ s, ∃z ∈ s, z ≼ x ∧ z ≼ y
-
-lemma directed_on_Union {r} {ι : Sort v} {f : ι → set α} (hd : directed (⊇) f)
-  (h : ∀x, directed_on r (f x)) : directed_on r (⋃x, f x) :=
-by simp [directed_on]; exact
-  take a₁ ⟨b₁, fb₁⟩ a₂ ⟨b₂, fb₂⟩,
-  let
-    ⟨z, zb₁, zb₂⟩ := hd b₁ b₂,
-    ⟨x, xf, xa₁, xa₂⟩ := h z a₁ (zb₁ fb₁) a₂ (zb₂ fb₂) 
-  in
-    ⟨x, xa₁, xa₂, z, xf⟩
-
-def upwards (s : set α) := ∀{x y}, x ∈ s → x ≼ y → y ∈ s
-
-end order
-
 section applicative
 variables {f : Type u → Type v} [applicative f] {α β : Type u}
 
@@ -69,6 +37,87 @@ theorem bind_assoc : ∀ {α β γ : Type u} (x : m α) (f : α → m β) (g : �
 @monad.bind_assoc m _
 
 end monad
+
+namespace lattice
+variables {α : Type u} [complete_lattice α]
+
+lemma Inf_eq_finite_sets {s : set α} :
+  Inf s = (⨅ t ∈ { t | finite t ∧ t ⊆ s}, Inf t) :=
+le_antisymm 
+  (le_infi $ take t, le_infi $ take ⟨_, h⟩, Inf_le_Inf h)
+  (le_Inf $ take b h, infi_le_of_le {b} $ infi_le_of_le (by simp [h]) $ Inf_le $ by simp)
+
+lemma Sup_le_iff {s : set α} {a : α} : Sup s ≤ a ↔ (∀x∈s, x ≤ a) :=
+⟨take h x hx, le_trans (le_Sup hx) h, Sup_le⟩
+
+end lattice
+
+instance : monad set :=
+{ monad .
+  pure := λα a, {a},
+  bind := λα β s f, ⋃i∈s, f i,
+  map  := λα β, set.image,
+  pure_bind := take α β x f, by simp,
+  bind_assoc := take α β γ s f g, set.ext $ take a,
+    by simp; exact ⟨take ⟨b, ag, a, as, bf⟩, ⟨a, as, b, bf, ag⟩, take ⟨a, as, b, bf, ag⟩, ⟨b, ag, a, as, bf⟩⟩,
+  id_map := take α, functor.id_map,
+  bind_pure_comp_eq_map := take α β f s, set.ext $ by simp [set.image, eq_comm] }
+
+namespace set
+
+section
+variables {α β : Type u}
+
+lemma fmap_eq_image {f : α → β} {s : set α} : f <$> s = f ' s :=
+rfl
+
+lemma mem_seq_iff {f : set (α → β)} {s : set α} {b : β} :
+  b ∈ (f <*> s) ↔ (∃(f' : α → β), ∃a ∈ s, f' ∈ f ∧ b = f' a) :=
+begin
+  simp [seq_eq_bind_map, bind],
+  apply exists_congr,
+  intro f',
+  exact ⟨take ⟨hf', a, ha, h_eq⟩, ⟨a, h_eq^.symm, ha, hf'⟩,
+    take ⟨a, h_eq, ha, hf'⟩, ⟨hf', a, ha, h_eq^.symm⟩⟩
+end
+
+end
+
+variables {α : Type u} {β : Type v}
+
+protected def prod (s : set α) (t : set β) : set (α × β) :=
+{p | p.1 ∈ s ∧ p.2 ∈ t}
+
+lemma mem_prod_eq {s : set α} {t : set β} {p : α × β} :
+  p ∈ set.prod s t = (p.1 ∈ s ∧ p.2 ∈ t) :=
+rfl
+
+lemma prod_mono {s₁ s₂ : set α} {t₁ t₂ : set β} (hs : s₁ ⊆ s₂) (ht : t₁ ⊆ t₂) :
+  set.prod s₁ t₁ ⊆ set.prod s₂ t₂ :=
+take x ⟨h₁, h₂⟩, ⟨hs h₁, ht h₂⟩
+
+end set
+
+section order
+variables {α : Type u} (r : α → α → Prop)
+local infix `≼` : 50 := r
+
+def directed {ι : Sort v} (f : ι → α) := ∀x, ∀y, ∃z, f z ≼ f x ∧ f z ≼ f y
+def directed_on (s : set α) := ∀x ∈ s, ∀y ∈ s, ∃z ∈ s, z ≼ x ∧ z ≼ y
+
+lemma directed_on_Union {r} {ι : Sort v} {f : ι → set α} (hd : directed (⊇) f)
+  (h : ∀x, directed_on r (f x)) : directed_on r (⋃x, f x) :=
+by simp [directed_on]; exact
+  take a₁ ⟨b₁, fb₁⟩ a₂ ⟨b₂, fb₂⟩,
+  let
+    ⟨z, zb₁, zb₂⟩ := hd b₁ b₂,
+    ⟨x, xf, xa₁, xa₂⟩ := h z a₁ (zb₁ fb₁) a₂ (zb₂ fb₂) 
+  in
+    ⟨x, xa₁, xa₂, z, xf⟩
+
+def upwards (s : set α) := ∀{x y}, x ∈ s → x ≼ y → y ∈ s
+
+end order
 
 structure filter (α : Type u) :=
 (sets           : set (set α))
@@ -461,6 +510,95 @@ filter_eq $ set.ext $ take a, image_subset_iff_subset_vimage^.symm
 lemma mem_return_sets {a : α} {s : set α} : s ∈ (return a : filter α)^.sets ↔ a ∈ s :=
 show s ∈ (principal {a})^.sets ↔ a ∈ s,
   by simp
+
+section lift
+
+protected def lift (f : filter α) (g : set α → filter β) :=
+(⨅s ∈ f^.sets, g s)
+
+section
+variables {f f₁ f₂ : filter α} {g g₁ g₂ : set α → filter β}
+
+lemma lift_sets_eq (hg : monotone g) : (f^.lift g)^.sets = (⋃t∈f^.sets, (g t)^.sets) :=
+infi_sets_eq' 
+  (take s hs t ht, ⟨s ∩ t, inter_mem_sets hs ht,
+    hg $ inter_subset_left s t, hg $ inter_subset_right s t⟩)
+  ⟨univ, univ_mem_sets⟩
+
+lemma mem_lift_iff (hg : monotone g) {s : set β} :
+  s ∈ (f^.lift g)^.sets ↔ (∃t∈f^.sets, s ∈ (g t)^.sets) :=
+by rw [lift_sets_eq hg]; simp
+
+lemma lift_mono (hf : f₁ ≤ f₂) (hg : g₁ ≤ g₂) : f₁^.lift g₁ ≤ f₂^.lift g₂ :=
+infi_le_infi $ take s, infi_le_infi2 $ take hs, ⟨hf hs, hg s⟩
+
+end
+
+section
+protected def lift' (f : filter α) (h : set α → set β) :=
+f^.lift (principal ∘ h)
+
+variables {f f₁ f₂ : filter α} {h h₁ h₂ : set α → set β}
+
+lemma mem_lift'_iff (hh : monotone h) {s : set β} : s ∈ (f^.lift' h)^.sets ↔ (∃t∈f^.sets, h t ⊆ s) :=
+have monotone (principal ∘ h),
+  from take a b h, principal_mono.mpr $ hh h,
+by simp [filter.lift', @mem_lift_iff α β f _ this]
+
+lemma lift'_mono (hf : f₁ ≤ f₂) (hh : h₁ ≤ h₂) : f₁^.lift' h₁ ≤ f₂^.lift' h₂ :=
+lift_mono hf $ take s, principal_mono.mpr $ hh s
+
+end
+
+end lift
+
+/- product filter -/
+
+/- The product filter cannot be defined using the monad structure on filters. For example:
+
+  F := do {x <- seq, y <- top, return (x, y)} 
+  hence:
+    s ∈ F  <->  ∃n, [n..∞] × univ ⊆ s
+
+  G := do {y <- top, x <- seq, return (x, y)} 
+  hence:
+    s ∈ G  <->  ∀i:ℕ, ∃n, [n..∞] × {i} ⊆ s
+
+  Now  ⋃i, [i..∞] × {i}  is in G but not in F.
+
+  As product filter we want to have F as result. 
+-/
+
+section prod
+
+protected def prod (f : filter α) (g : filter β) : filter (α × β) :=
+f^.lift $ λs, g^.lift' $ λt, set.prod s t
+
+lemma prod_mem_prod {s : set α} {t : set β} {f : filter α} {g : filter β} 
+  (hs : s ∈ f^.sets) (ht : t ∈ g^.sets) : set.prod s t ∈ (filter.prod f g)^.sets :=
+le_principal_iff^.mp $ show filter.prod f g ≤ principal (set.prod s t),
+  from infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le t $ infi_le _ ht
+
+lemma prod_mono {f₁ f₂ : filter α} {g₁ g₂ : filter β} (hf : f₁ ≤ f₂) (hg : g₁ ≤ g₂) :
+  filter.prod f₁ g₁ ≤ filter.prod f₂ g₂ :=
+lift_mono hf $ take s, lift'_mono hg $ le_refl _
+
+lemma prod_le_comm {f : filter α} {g : filter β} : map (λp:β×α, (p.2, p.1)) (filter.prod g f) ≤ filter.prod f g :=
+le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht,
+  have {x : β × α | (x.snd, x.fst) ∈ set.prod s t} = set.prod t s,
+    by apply set.ext; intro x; simp [set.mem_prod_eq],
+  by simp [this, prod_mem_prod, hs, ht]
+
+lemma prod_comm {f : filter α} {g : filter β} : filter.prod f g = map (λp:β×α, (p.2, p.1)) (filter.prod g f) :=
+le_antisymm
+  ( have ((λ (p : β × α), (p.snd, p.fst)) ∘ λ (p : α × β), (p.snd, p.fst)) = id, 
+      by apply funext; intro x; cases x; simp,
+    calc filter.prod f g = (map (λp:β×α, (p.2, p.1)) ∘ map (λp:α×β, (p.2, p.1))) (filter.prod f g) :
+        by simp [map_compose, this]
+      ... ≤ map (λp:β×α, (p.2, p.1)) (filter.prod g f) : map_mono $ prod_le_comm)
+  prod_le_comm
+
+end prod
 
 /- towards -/
 

@@ -23,7 +23,7 @@ class uniform_space (α : Type u) :=
 (uniformity : filter (α × α))
 (refl       : principal refl_rel ≤ uniformity)
 (symm       : (λx : α × α, (x.2, x.1)) <$> uniformity ≤ uniformity)
-(trans      : (⨅s∈uniformity^.sets, ⨅t∈uniformity^.sets, principal (trans_rel s t)) ≤ uniformity)
+(trans      : uniformity^.lift (λs, uniformity^.lift' (trans_rel s)) ≤ uniformity)
 
 section uniform_space
 variables [uniform_space α]
@@ -37,8 +37,7 @@ lemma symm_le_uniformity : (λx : α × α, (x.2, x.1)) <$> uniformity ≤ unifo
 uniform_space.symm α
 
 lemma trans_le_uniformity :
-  (⨅s∈(uniformity^.sets : set (set (α×α))), ⨅t∈(uniformity^.sets : set (set (α×α))),
-    principal (trans_rel s t)) ≤ uniformity :=
+  uniformity^.lift (λs:set (α×α), uniformity^.lift' (trans_rel s)) ≤ uniformity :=
 uniform_space.trans α
 
 lemma uniformity_le_symm : uniformity ≤ (λx : α × α, (x.2, x.1)) <$> uniformity :=
@@ -46,21 +45,23 @@ calc uniformity = id <$> uniformity : (monad.id_map _)^.symm
   ... = ((λx : α × α, (x.2, x.1)) ∘ (λx : α × α, (x.2, x.1))) <$> uniformity :
     congr_arg (λf : (α×α)→(α×α), f <$> uniformity) (by apply funext; intro x; cases x; refl)
   ... = (map (λx : α × α, (x.2, x.1)) ∘ map (λx : α × α, (x.2, x.1))) uniformity :
-    congr map_compose rfl 
+    congr map_compose rfl
   ... ≤ (λx : α × α, (x.2, x.1)) <$> uniformity : map_mono symm_le_uniformity
 
 lemma uniformity_eq_symm : uniformity = (λx : α × α, (x.2, x.1)) <$> uniformity :=
 le_antisymm uniformity_le_symm symm_le_uniformity
 
 /- neighbourhood -/
-definition nhds (x : α) : filter α :=
-(⨅s∈(uniformity^.sets : set (set (α×α))), principal {y | (x, y) ∈ s})
+definition nhds (x : α) : filter α := uniformity^.lift' (λs:set (α×α), {y | (x, y) ∈ s})
 
 lemma pure_le_nhds {x : α} : pure x ≤ nhds x :=
-le_infi $ take s, le_infi $ assume hs : s ∈ uniformity.sets,
-  have (x, x) ∈ s,
-    from refl_le_uniformity hs rfl,
-  principal_mono.mpr $ by simp [this]
+have m : monotone (λ (s : set (α × α)), {y : α | (x, y) ∈ s}),
+  from take s t h a ha, h ha,
+have set_of (eq x) = {x},
+  by apply set.ext; simp [eq_comm],
+calc pure x = (principal {p : α × α | p^.1 = p^.2})^.lift' (λs:set (α×α), {y | (x, y) ∈ s}) :
+    by rw [lift'_principal m]; simp [this, pure]
+  ... ≤ nhds x : lift'_mono refl_le_uniformity (le_refl _)
 
 /- cauchy filters -/
 definition cauchy (f : filter α) : Prop := filter.prod f f ≤ uniformity
@@ -69,10 +70,11 @@ lemma cauchy_downwards {f g : filter α} (h_c : cauchy f) (h_le : g ≤ f) : cau
 le_trans (filter.prod_mono h_le h_le) h_c
 
 lemma cauchy_nhds {a : α} : cauchy (nhds a) :=
-calc filter.prod (nhds a) (nhds a) ≤ uniformity :
-  infi_le _ _
-
-
+calc filter.prod (nhds a) (nhds a) ≤ uniformity^.lift (λs:set (α×α), uniformity^.lift' (trans_rel s)) :
+  begin
+    simp [filter.prod, nhds]
+  end
+  ... ≤ uniformity : trans_le_uniformity
 
 #exit
 

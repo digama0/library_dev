@@ -8,7 +8,7 @@ Theory of filters on sets.
 import .complete_lattice ...data.set
 open lattice set
 
-universes u v w
+universes u v w x
 
 section applicative
 variables {f : Type u → Type v} [applicative f] {α β : Type u}
@@ -43,7 +43,7 @@ variables {α : Type u} [complete_lattice α]
 
 lemma Inf_eq_finite_sets {s : set α} :
   Inf s = (⨅ t ∈ { t | finite t ∧ t ⊆ s}, Inf t) :=
-le_antisymm 
+le_antisymm
   (le_infi $ take t, le_infi $ take ⟨_, h⟩, Inf_le_Inf h)
   (le_Inf $ take b h, infi_le_of_le {b} $ infi_le_of_le (by simp [h]) $ Inf_le $ by simp)
 
@@ -96,6 +96,12 @@ lemma prod_mono {s₁ s₂ : set α} {t₁ t₂ : set β} (hs : s₁ ⊆ s₂) (
   set.prod s₁ t₁ ⊆ set.prod s₂ t₂ :=
 take x ⟨h₁, h₂⟩, ⟨hs h₁, ht h₂⟩
 
+lemma image_swap_prod {s : set α} {t : set β} :
+  image (λp:β×α, (p.2, p.1)) (set.prod t s) = set.prod s t :=
+set.ext $ take ⟨a, b⟩, by simp [mem_image_eq, set.prod]; exact
+⟨ take ⟨⟨b', a'⟩, h_a, h_b, h⟩, by rw [h_a, h_b] at h; assumption,
+  take ⟨ha, hb⟩, ⟨⟨b, a⟩, rfl, rfl, begin simp; exact ⟨ha, hb⟩ end⟩⟩
+
 end set
 
 section order
@@ -111,7 +117,7 @@ by simp [directed_on]; exact
   take a₁ ⟨b₁, fb₁⟩ a₂ ⟨b₂, fb₂⟩,
   let
     ⟨z, zb₁, zb₂⟩ := hd b₁ b₂,
-    ⟨x, xf, xa₁, xa₂⟩ := h z a₁ (zb₁ fb₁) a₂ (zb₂ fb₂) 
+    ⟨x, xf, xa₁, xa₂⟩ := h z a₁ (zb₁ fb₁) a₂ (zb₂ fb₂)
   in
     ⟨x, xa₁, xa₂, z, xf⟩
 
@@ -126,7 +132,7 @@ structure filter (α : Type u) :=
 (directed_sets  : directed_on (⊆) sets)
 
 namespace filter
-variables {α : Type u} {β : Type v} {ι : Sort w}
+variables {α : Type u} {β : Type v} {γ : Type w} {ι : Sort x}
 
 lemma filter_eq : ∀{f g : filter α}, f^.sets = g^.sets → f = g
 | ⟨a, _, _, _⟩ ⟨._, _, _, _⟩ rfl := rfl
@@ -175,7 +181,7 @@ def join (f : filter (filter α)) : filter α :=
   inhabited     := ⟨univ, by simp [univ_mem_sets]; exact univ_mem_sets⟩,
   upwards_sets  := take x y hx xy, f^.upwards_sets hx $ take a h, a^.upwards_sets h xy,
   directed_sets := take x hx y hy, ⟨x ∩ y,
-    f^.upwards_sets (inter_mem_sets hx hy) $ take z ⟨h₁, h₂⟩, inter_mem_sets h₁ h₂, 
+    f^.upwards_sets (inter_mem_sets hx hy) $ take z ⟨h₁, h₂⟩, inter_mem_sets h₁ h₂,
     inter_subset_left _ _,  inter_subset_right _ _⟩ }
 
 def map (m : α → β) (f : filter α) : filter β :=
@@ -203,11 +209,11 @@ protected def inf (f g : filter α) :=
   upwards_sets  := take x y ⟨a, ha, b, hb, h⟩ xy,
     ⟨a, ha, b, hb, subset.trans h xy⟩,
   directed_sets := take x ⟨a₁, ha₁, b₁, hb₁, h₁⟩ y ⟨a₂, ha₂, b₂, hb₂, h₂⟩,
-    ⟨x ∩ y, 
+    ⟨x ∩ y,
       ⟨_, inter_mem_sets ha₁ ha₂, _, inter_mem_sets hb₁ hb₂,
         calc (a₁ ⊓ a₂) ⊓ (b₁ ⊓ b₂) = (a₁ ⊓ b₁) ⊓ (a₂ ⊓ b₂) : by ac_refl
                                 ... ≤ x ∩ y : inf_le_inf h₁ h₂ ⟩,
-      inter_subset_left _ _, inter_subset_right _ _⟩ }  
+      inter_subset_left _ _, inter_subset_right _ _⟩ }
 
 def cofinite : filter α :=
 { filter .
@@ -216,7 +222,7 @@ def cofinite : filter α :=
   upwards_sets  := take s t, assume hs : finite (-s), assume st: s ⊆ t,
     finite_subset hs $ @lattice.neg_le_neg (set α) _ _ _ st,
   directed_sets := take s, assume hs : finite (-s), take t, assume ht : finite (-t),
-    ⟨s ∩ t, by simp [compl_inter, finite_union, ht, hs], 
+    ⟨s ∩ t, by simp [compl_inter, finite_union, ht, hs],
       inter_subset_left _ _, inter_subset_right _ _⟩ }
 
 instance weak_order_filter : weak_order (filter α) :=
@@ -252,6 +258,9 @@ show (∀{t}, s ⊆ t → t ∈ f^.sets) ↔ s ∈ f^.sets,
 
 lemma principal_mono {s t : set α} : principal s ≤ principal t ↔ s ⊆ t :=
 by simp
+
+lemma monotone_principal : monotone (principal : set α → filter α) :=
+by simp [monotone, principal_mono]; exact take a b h, h
 
 @[simp]
 lemma principal_eq_iff_eq {s t : set α} : principal s = principal t ↔ s = t :=
@@ -354,7 +363,7 @@ calc (Inf s)^.sets = (⨅ t ∈ { t | finite t ∧ t ⊆ s}, Inf t)^.sets : by r
     ⟨∅, by simp⟩
 
 lemma supr_sets_eq {f : ι → filter α} : (supr f)^.sets = (⋂i, (f i)^.sets) :=
-set.ext $ take s, 
+set.ext $ take s,
 show s ∈ (join (principal {a : filter α | ∃i : ι, a = f i}))^.sets ↔ s ∈ (⋂i, (f i)^.sets),
 begin
   rw [mem_join_sets],
@@ -376,10 +385,10 @@ instance : bounded_distrib_lattice (filter α) :=
   begin
     cases h with h₁ h₂, revert h₂,
     simp,
-    exact take ⟨t₁, ht₁, t₂, ht₂, hs⟩, ⟨s ∪ t₁, 
+    exact take ⟨t₁, ht₁, t₂, ht₂, hs⟩, ⟨s ∪ t₁,
       x^.upwards_sets h₁ $ subset_union_left _ _,
       y^.upwards_sets ht₁ $ subset_union_right _ _,
-      s ∪ t₂, 
+      s ∪ t₂,
       x^.upwards_sets h₁ $ subset_union_left _ _,
       z^.upwards_sets ht₂ $ subset_union_right _ _,
       subset.trans (@le_sup_inf (set α) _ _ _ _) (union_subset (subset.refl _) hs)⟩
@@ -468,6 +477,9 @@ le_of_sup_eq $ calc
   map m f ⊔ map m g = map m (f ⊔ g) : map_sup
                 ... = map m g : congr_arg (map m) $ sup_of_le_right h
 
+lemma monotone_map {m : α → β} : monotone (map m : filter α → filter β) :=
+take a b h, map_mono h
+
 -- this is a generic rule for monotone functions:
 lemma map_infi_le {f : ι → filter α} {m : α → β} :
   map m (infi f) ≤ (⨅ i, map m (f i)) :=
@@ -520,7 +532,7 @@ section
 variables {f f₁ f₂ : filter α} {g g₁ g₂ : set α → filter β}
 
 lemma lift_sets_eq (hg : monotone g) : (f^.lift g)^.sets = (⋃t∈f^.sets, (g t)^.sets) :=
-infi_sets_eq' 
+infi_sets_eq'
   (take s hs t ht, ⟨s ∩ t, inter_mem_sets hs ht,
     hg $ inter_subset_left s t, hg $ inter_subset_right s t⟩)
   ⟨univ, univ_mem_sets⟩
@@ -531,6 +543,50 @@ by rw [lift_sets_eq hg]; simp
 
 lemma lift_mono (hf : f₁ ≤ f₂) (hg : g₁ ≤ g₂) : f₁^.lift g₁ ≤ f₂^.lift g₂ :=
 infi_le_infi $ take s, infi_le_infi2 $ take hs, ⟨hf hs, hg s⟩
+
+lemma map_lift_eq {m : β → γ} (hg : monotone g) :
+  map m (f^.lift g) = f^.lift (map m ∘ g) :=
+have monotone (map m ∘ g),
+  from monotone_comp hg monotone_map,
+filter_eq $ set.ext $
+  by simp [mem_lift_iff, hg, @mem_lift_iff _ _ f _ this]
+
+lemma map_lift_eq2 {g : set β → filter γ} {m : α → β} (hg : monotone g) :
+  (map m f)^.lift g = f^.lift (g ∘ image m) :=
+le_antisymm
+  (infi_le_infi2 $ take s, ⟨image m s,
+    infi_le_infi2 $ take hs, ⟨
+      f^.upwards_sets hs $ take a h, mem_image_of_mem _ h,
+      le_refl _⟩⟩)
+  (infi_le_infi2 $ take t, ⟨vimage m t,
+    infi_le_infi2 $ take ht, ⟨ht,
+      hg $ take x, assume h : x ∈ m ' vimage m t,
+        let ⟨y, hy, h_eq⟩ := h in
+        show x ∈ t, from h_eq ▸ hy⟩⟩)
+
+lemma lift_comm {f : filter α} {g : filter β} {h : set α → set β → filter γ} :
+  f^.lift (λs, g^.lift (h s)) = g^.lift (λt, f^.lift (λs, h s t)) :=
+le_antisymm
+  (le_infi $ take i, le_infi $ take hi, le_infi $ take j, le_infi $ take hj,
+    infi_le_of_le j $ infi_le_of_le hj $ infi_le_of_le i $ infi_le _ hi)
+  (le_infi $ take i, le_infi $ take hi, le_infi $ take j, le_infi $ take hj,
+    infi_le_of_le j $ infi_le_of_le hj $ infi_le_of_le i $ infi_le _ hi)
+
+lemma lift_assoc {f : filter α} {g : set α → filter β} {h : set β → filter γ}
+  (hg : monotone g)  :
+  (f^.lift g)^.lift h = f^.lift (λs, (g s)^.lift h) :=
+le_antisymm
+  (le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht,
+    infi_le_of_le t $ infi_le _ $ (mem_lift_iff hg)^.mpr ⟨_, hs, ht⟩)
+  (le_infi $ take t, le_infi $ take ht,
+    let ⟨s, hs, h'⟩ := (mem_lift_iff hg)^.mp ht in
+    infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le t $ infi_le _ h')
+
+lemma lift_principal {s : set α} (hg : monotone g) :
+  (principal s)^.lift g = g s :=
+le_antisymm
+  (infi_le_of_le s $ infi_le _ $ subset.refl _)
+  (le_infi $ take t, le_infi $ take hi, hg hi)
 
 end
 
@@ -548,6 +604,15 @@ by simp [filter.lift', @mem_lift_iff α β f _ this]
 lemma lift'_mono (hf : f₁ ≤ f₂) (hh : h₁ ≤ h₂) : f₁^.lift' h₁ ≤ f₂^.lift' h₂ :=
 lift_mono hf $ take s, principal_mono.mpr $ hh s
 
+lemma map_lift'_eq {m : β → γ} (hh : monotone h) : map m (f^.lift' h) = f^.lift' (image m ∘ h) :=
+calc map m (f^.lift' h) = f^.lift (map m ∘ principal ∘ h) :
+    map_lift_eq $ monotone_comp hh monotone_principal
+  ... = f^.lift' (image m ∘ h) : by simp [function.comp, filter.lift']
+
+lemma lift'_principal {s : set α} (hh : monotone h) :
+  (principal s)^.lift' h = principal (h s) :=
+lift_principal $ monotone_comp hh monotone_principal
+
 end
 
 end lift
@@ -556,17 +621,17 @@ end lift
 
 /- The product filter cannot be defined using the monad structure on filters. For example:
 
-  F := do {x <- seq, y <- top, return (x, y)} 
+  F := do {x <- seq, y <- top, return (x, y)}
   hence:
     s ∈ F  <->  ∃n, [n..∞] × univ ⊆ s
 
-  G := do {y <- top, x <- seq, return (x, y)} 
+  G := do {y <- top, x <- seq, return (x, y)}
   hence:
     s ∈ G  <->  ∀i:ℕ, ∃n, [n..∞] × {i} ⊆ s
 
   Now  ⋃i, [i..∞] × {i}  is in G but not in F.
 
-  As product filter we want to have F as result. 
+  As product filter we want to have F as result.
 -/
 
 section prod
@@ -574,7 +639,7 @@ section prod
 protected def prod (f : filter α) (g : filter β) : filter (α × β) :=
 f^.lift $ λs, g^.lift' $ λt, set.prod s t
 
-lemma prod_mem_prod {s : set α} {t : set β} {f : filter α} {g : filter β} 
+lemma prod_mem_prod {s : set α} {t : set β} {f : filter α} {g : filter β}
   (hs : s ∈ f^.sets) (ht : t ∈ g^.sets) : set.prod s t ∈ (filter.prod f g)^.sets :=
 le_principal_iff^.mp $ show filter.prod f g ≤ principal (set.prod s t),
   from infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le t $ infi_le _ ht
@@ -583,20 +648,14 @@ lemma prod_mono {f₁ f₂ : filter α} {g₁ g₂ : filter β} (hf : f₁ ≤ f
   filter.prod f₁ g₁ ≤ filter.prod f₂ g₂ :=
 lift_mono hf $ take s, lift'_mono hg $ le_refl _
 
-lemma prod_le_comm {f : filter α} {g : filter β} : map (λp:β×α, (p.2, p.1)) (filter.prod g f) ≤ filter.prod f g :=
-le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht,
-  have {x : β × α | (x.snd, x.fst) ∈ set.prod s t} = set.prod t s,
-    by apply set.ext; intro x; simp [set.mem_prod_eq],
-  by simp [this, prod_mem_prod, hs, ht]
-
 lemma prod_comm {f : filter α} {g : filter β} : filter.prod f g = map (λp:β×α, (p.2, p.1)) (filter.prod g f) :=
-le_antisymm
-  ( have ((λ (p : β × α), (p.snd, p.fst)) ∘ λ (p : α × β), (p.snd, p.fst)) = id, 
-      by apply funext; intro x; cases x; simp,
-    calc filter.prod f g = (map (λp:β×α, (p.2, p.1)) ∘ map (λp:α×β, (p.2, p.1))) (filter.prod f g) :
-        by simp [map_compose, this]
-      ... ≤ map (λp:β×α, (p.2, p.1)) (filter.prod g f) : map_mono $ prod_le_comm)
-  prod_le_comm
+eq.symm $ calc map (λp:β×α, (p.2, p.1)) (filter.prod g f) =
+        (g^.lift $ λt, map (λp:β×α, (p.2, p.1)) (f^.lift' $ λs, set.prod t s)) :
+    map_lift_eq $ take a b h, lift'_mono (le_refl f) (take t, set.prod_mono h (subset.refl t))
+  ... = (g^.lift $ λt, f^.lift' $ λs, image (λp:β×α, (p.2, p.1)) (set.prod t s)) :
+    congr_arg g^.lift $ funext $ take s, map_lift'_eq $ take a b h, set.prod_mono (subset.refl s) h
+  ... = (g^.lift $ λt, f^.lift' $ λs, set.prod s t) : by simp [set.image_swap_prod]
+  ... = filter.prod f g : lift_comm
 
 end prod
 

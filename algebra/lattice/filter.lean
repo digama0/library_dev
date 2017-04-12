@@ -407,7 +407,7 @@ begin
 end
 
 /- the complementary version with ⨆ g∈s, f ⊓ g does not hold! -/
-lemma infi_sup_eq { f : filter α } {s : set (filter α)} :
+lemma binfi_sup_eq { f : filter α } {s : set (filter α)} :
   (⨅ g∈s, f ⊔ g) = f ⊔ complete_lattice.Inf s :=
 le_antisymm
   begin
@@ -425,6 +425,17 @@ le_antisymm
     exact take i, ⟨i, infi_le_infi2 $ take h, ⟨hs's h, le_refl _⟩⟩
   end
   (le_infi $ take g, le_infi $ take h, sup_le_sup (le_refl f) $ Inf_le h)
+
+lemma infi_sup_eq { f : filter α } {g : ι → filter α} :
+  (⨅ x, f ⊔ g x) = f ⊔ infi g :=
+begin
+  assertv h : (⨅x (H : ∃ (i : ι), g i = x), f ⊔ x) = f ⊔ complete_lattice.Inf {x | ∃ (i : ι), g i = x} :=
+    @binfi_sup_eq α f {x | ∃i, g i = x},
+  simp [infi_exists] at h,
+  rw [infi_comm] at h,
+  rw [infi_empty] at h,
+  
+end
 
 /- principal equations -/
 
@@ -586,6 +597,10 @@ le_antisymm
     let ⟨s, hs, h'⟩ := (mem_lift_iff hg)^.mp ht in
     infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le t $ infi_le _ h')
 
+lemma lift_lift_same_le_lift {f : filter α} {g : set α → set α → filter β} :
+  f^.lift (λs, f^.lift (g s)) ≤ f^.lift (λs, g s s) :=
+le_infi $ take s, le_infi $ take hs, infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le s $ infi_le _ hs
+
 lemma lift_principal {s : set α} (hg : monotone g) :
   (principal s)^.lift g = g s :=
 le_antisymm
@@ -628,6 +643,22 @@ le_infi $ take s, le_infi $ take hs, principal_mono^.mpr (hh s hs)
 lemma monotone_lift' [weak_order γ] {f : γ → filter α} {g : γ → set α → set β} 
   (hf : monotone f) (hg : monotone g) : monotone (λc, (f c)^.lift' (g c)) :=
 take a b h, lift'_mono (hf h) (hg h)
+
+lemma lift_lift'_assoc {f : filter α} {g : set α → set β} {h : set β → filter γ}
+  (hg : monotone g) (hh : monotone h) :
+  (f^.lift' g)^.lift h = f^.lift (λs, h (g s)) :=
+calc (f^.lift' g)^.lift h = f^.lift (λs, (principal (g s))^.lift h) :
+    lift_assoc (monotone_comp hg monotone_principal)
+  ... = f^.lift (λs, h (g s)) : by simp [lift_principal, hh]
+
+lemma lift'_lift'_assoc {f : filter α} {g : set α → set β} {h : set β → set γ}
+  (hg : monotone g) (hh : monotone h) :
+  (f^.lift' g)^.lift' h = f^.lift' (λs, h (g s)) :=
+lift_lift'_assoc hg (monotone_comp hh monotone_principal)
+
+lemma lift_lift'_same_le_lift' {f : filter α} {g : set α → set α → set β} :
+  f^.lift (λs, f^.lift' (g s)) ≤ f^.lift' (λs, g s s) :=
+le_infi $ take s, le_infi $ take hs, infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le s $ infi_le _ hs
 
 end
 
@@ -672,6 +703,10 @@ eq.symm $ calc map (λp:β×α, (p.2, p.1)) (filter.prod g f) =
     congr_arg g^.lift $ funext $ take s, map_lift'_eq $ take a b h, set.prod_mono (subset.refl s) h
   ... = (g^.lift $ λt, f^.lift' $ λs, set.prod s t) : by simp [set.image_swap_prod]
   ... = filter.prod f g : lift_comm
+
+lemma prod_triangle {f g h : filter α} :
+  filter.prod f g ⊓ filter.prod g h ≤ filter.prod f h :=
+_
 
 end prod
 

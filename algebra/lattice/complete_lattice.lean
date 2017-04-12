@@ -54,7 +54,7 @@ le_trans h (le_Sup hb)
 lemma Inf_le_of_le (hb : b ∈ s) (h : b ≤ a) : Inf s ≤ a :=
 le_trans (Inf_le hb) h
 
-lemma Sup_le_Sup (h : s ⊆ t) : Sup s ≤ Sup t :=
+lemma Sup_le_Sup (h : s ⊆ t) : Sup s ≤ Sup t :=s
 Sup_le (take a, assume ha : a ∈ s, le_Sup $ h ha)
 
 lemma Inf_le_Inf (h : s ⊆ t) : Inf t ≤ Inf s :=

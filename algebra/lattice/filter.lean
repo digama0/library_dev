@@ -403,7 +403,7 @@ private theorem infi_finite_distrib {s : set (filter α)} {f : filter α} (h : f
 begin
   induction h with a s hn hs hi,
   { simp, exact infi_const bot },
-  { simp [hi, sup_inf_left] }
+  { rw [infi_insert], simp [hi, infi_or, sup_inf_left] }
 end
 
 /- the complementary version with ⨆ g∈s, f ⊓ g does not hold! -/
@@ -428,14 +428,9 @@ le_antisymm
 
 lemma infi_sup_eq { f : filter α } {g : ι → filter α} :
   (⨅ x, f ⊔ g x) = f ⊔ infi g :=
-begin
-  assertv h : (⨅x (H : ∃ (i : ι), g i = x), f ⊔ x) = f ⊔ complete_lattice.Inf {x | ∃ (i : ι), g i = x} :=
-    @binfi_sup_eq α f {x | ∃i, g i = x},
-  simp [infi_exists] at h,
-  rw [infi_comm] at h,
-  rw [infi_empty] at h,
-  
-end
+calc (⨅ x, f ⊔ g x) = (⨅ x (h : ∃i, g i = x), f ⊔ x) : by simp; rw [infi_comm]; simp
+  ... = f ⊔ Inf {x | ∃i, g i = x} : binfi_sup_eq
+  ... = f ⊔ infi g : by rw [Inf_eq_infi]; dsimp; simp; rw [infi_comm]; simp
 
 /- principal equations -/
 
@@ -703,10 +698,6 @@ eq.symm $ calc map (λp:β×α, (p.2, p.1)) (filter.prod g f) =
     congr_arg g^.lift $ funext $ take s, map_lift'_eq $ take a b h, set.prod_mono (subset.refl s) h
   ... = (g^.lift $ λt, f^.lift' $ λs, set.prod s t) : by simp [set.image_swap_prod]
   ... = filter.prod f g : lift_comm
-
-lemma prod_triangle {f g h : filter α} :
-  filter.prod f g ⊓ filter.prod g h ≤ filter.prod f h :=
-_
 
 end prod
 

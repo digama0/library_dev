@@ -45,22 +45,19 @@ class complete_boolean_algebra α extends boolean_algebra α, complete_distrib_l
 section complete_boolean_algebra
 variables [complete_boolean_algebra α] {a b : α} {s : set α} {f : ι → α}
 
-lemma neg_Inf : - Inf s = (⨆i∈s, - i) :=
-le_antisymm
-  (neg_le_of_swap $ le_Inf $ take i, suppose i ∈ s,
-    neg_le_of_swap $ le_supr_of_le i $ le_supr (λh, -i) ‹i∈s›)
-  (supr_le $ take i, supr_le $ suppose i ∈ s, 
-    neg_le_neg $ Inf_le ‹i∈s›)
-
 lemma neg_infi : - infi f = (⨆i, - f i) :=
-calc - infi f = (⨆a, ⨆h:∃i, a = f i, - a) : neg_Inf
-          ... = (⨆i, - f i) : by simp [supr_comm]
+le_antisymm
+  (neg_le_of_neg_le $ le_infi $ take i, neg_le_of_neg_le $ le_supr (λi, - f i) i)
+  (supr_le $ take i, neg_le_neg $ infi_le _ _)
 
 lemma neg_supr : - supr f = (⨅i, - f i) :=
 neg_eq_neg_of_eq (by simp [neg_infi])
 
+lemma neg_Inf : - Inf s = (⨆i∈s, - i) :=
+by simp [Inf_eq_infi, neg_infi]
+
 lemma neg_Sup : - Sup s = (⨅i∈s, - i) :=
-sorry
+by simp [Sup_eq_supr, neg_supr]
 
 end complete_boolean_algebra
 

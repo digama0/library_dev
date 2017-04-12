@@ -54,7 +54,7 @@ le_trans h (le_Sup hb)
 lemma Inf_le_of_le (hb : b ∈ s) (h : b ≤ a) : Inf s ≤ a :=
 le_trans (Inf_le hb) h
 
-lemma Sup_le_Sup (h : s ⊆ t) : Sup s ≤ Sup t :=s
+lemma Sup_le_Sup (h : s ⊆ t) : Sup s ≤ Sup t :=
 Sup_le (take a, assume ha : a ∈ s, le_Sup $ h ha)
 
 lemma Inf_le_Inf (h : s ⊆ t) : Inf t ≤ Inf s :=
@@ -324,10 +324,18 @@ le_antisymm
   (supr_le $ take b, supr_le $ take h, le_Sup h)
 
 lemma Inf_image {s : set β} {f : β → α} : Inf (set.image f s) = (⨅ a ∈ s, f a) :=
-sorry
-
+calc Inf (set.image f s) = (⨅a, ⨅h : ∃b, b ∈ s ∧ f b = a, a) : Inf_eq_infi
+                     ... = (⨅a, ⨅b, ⨅h : f b = a ∧ b ∈ s, a) : by simp
+                     ... = (⨅a, ⨅b, ⨅h : a = f b, ⨅h : b ∈ s, a) : by simp [infi_and, eq_comm]
+                     ... = (⨅b, ⨅a, ⨅h : a = f b, ⨅h : b ∈ s, a) : by rw [infi_comm]
+                     ... = (⨅a∈s, f a) : congr_arg infi $ funext $ take x, by rw [infi_infi_eq_left]
+ 
 lemma Sup_image {s : set β} {f : β → α} : Sup (set.image f s) = (⨆ a ∈ s, f a) :=
-sorry
+calc Sup (set.image f s) = (⨆a, ⨆h : ∃b, b ∈ s ∧ f b = a, a) : Sup_eq_supr
+                     ... = (⨆a, ⨆b, ⨆h : f b = a ∧ b ∈ s, a) : by simp
+                     ... = (⨆a, ⨆b, ⨆h : a = f b, ⨆h : b ∈ s, a) : by simp [supr_and, eq_comm]
+                     ... = (⨆b, ⨆a, ⨆h : a = f b, ⨆h : b ∈ s, a) : by rw [supr_comm]
+                     ... = (⨆a∈s, f a) : congr_arg supr $ funext $ take x, by rw [supr_supr_eq_left]
 
 /- supr and infi under set constructions -/
 
@@ -362,11 +370,11 @@ calc (⨆ x ∈ s ∪ t, f x) = (⨆ x, (⨆h : x∈s, f x) ⊔ (⨆h : x∈t, f
 
 @[simp]
 lemma infi_insert {f : β → α} {s : set β} {b : β} : (⨅ x ∈ insert b s, f x) = f b ⊓ (⨅x∈s, f x) :=
-eq.trans infi_union $ congr_arg (λx:α, x ⊓ (⨅x∈s, f x)) infi_infi_eq
+eq.trans infi_union $ congr_arg (λx:α, x ⊓ (⨅x∈s, f x)) infi_infi_eq_left
 
 @[simp]
 lemma supr_insert {f : β → α} {s : set β} {b : β} : (⨆ x ∈ insert b s, f x) = f b ⊔ (⨆x∈s, f x) :=
-eq.trans supr_union $ congr_arg (λx:α, x ⊔ (⨆x∈s, f x)) supr_supr_eq
+eq.trans supr_union $ congr_arg (λx:α, x ⊔ (⨆x∈s, f x)) supr_supr_eq_left
 
 @[simp]
 lemma infi_singleton {f : β → α} {b : β} : (⨅ x ∈ (singleton b : set β), f x) = f b :=

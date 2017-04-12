@@ -119,12 +119,16 @@ lemma neg_le_neg_iff_le : - y ≤ - x ↔ x ≤ y :=
 ⟨take h, by note h := neg_le_neg h; simp at h; assumption, 
   neg_le_neg⟩
 
-lemma neg_le_of_neg_le (h : y ≤ - x) : x ≤ - y :=
+lemma le_neg_of_le_neg (h : y ≤ - x) : x ≤ - y :=
 have - (- x) ≤ - y, from neg_le_neg h,
 by simp at this; assumption
 
+lemma neg_le_of_neg_le (h : - y ≤ x) : - x ≤ y :=
+have - x ≤ - (- y), from neg_le_neg h,
+by simp at this; assumption
+
 lemma neg_le_iff_neg_le : y ≤ - x ↔ x ≤ - y :=
-⟨neg_le_of_neg_le, neg_le_of_neg_le⟩
+⟨le_neg_of_le_neg, le_neg_of_le_neg⟩
 
 lemma sup_sub_same : x ⊔ (y - x) = x ⊔ y :=
 by simp [sub_eq, sup_inf_left]

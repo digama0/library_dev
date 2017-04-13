@@ -5,7 +5,7 @@ Authors: Johannes Hölzl
 
 Theory of uniform spaces.
 -/
-import algebra.lattice.filter
+import algebra.lattice.filter .topological_space
 open set lattice filter
 
 universes u v
@@ -98,12 +98,32 @@ def uniformity : filter (α × α) := uniform_space.uniformity α
 lemma refl_le_uniformity : principal {p : α × α | p^.1 = p^.2} ≤ uniformity :=
 uniform_space.refl α
 
+lemma refl_mem_uniformity {x : α} {s : set (α × α)} (h : s ∈ (@uniformity α _).sets) :
+  (x, x) ∈ s :=
+refl_le_uniformity h rfl
+
 lemma symm_le_uniformity : map (@prod.swap α α) uniformity ≤ uniformity :=
 uniform_space.symm α
 
-lemma trans_le_uniformity :
+lemma trans_le_uniformity' :
   uniformity^.lift (λs:set (α×α), uniformity^.lift' (trans_rel s)) ≤ uniformity :=
 uniform_space.trans α
+
+lemma trans_le_uniformity :
+  uniformity^.lift' (λt:set (α×α), trans_rel t t) ≤ uniformity :=
+calc uniformity^.lift' (λt:set (α×α), trans_rel t t) ≤
+        uniformity^.lift (λs:set (α×α), uniformity^.lift' (trans_rel s)) :
+    (le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht,
+      infi_le_of_le (s ∩ t) $
+      infi_le_of_le (inter_mem_sets hs ht) $
+      principal_mono.mpr $ take x ⟨z, ⟨h₁, _⟩, ⟨_, h₂⟩⟩, ⟨z, h₁, h₂⟩)
+  ... ≤ uniformity : trans_le_uniformity'
+
+lemma trans_mem_uniformity_sets {s : set (α × α)} (hs : s ∈ (@uniformity α _).sets) :
+  ∃t∈(@uniformity α _).sets, trans_rel t t ⊆ s :=
+have s ∈ (uniformity^.lift' (λt:set (α×α), trans_rel t t)).sets,
+  from trans_le_uniformity hs,
+(mem_lift'_iff $ monotone_trans_rel monotone_id monotone_id).mp this
 
 lemma uniformity_le_symm : uniformity ≤ map (@prod.swap α α) uniformity :=
 calc uniformity = id <$> uniformity : (monad.id_map _)^.symm
@@ -115,6 +135,43 @@ calc uniformity = id <$> uniformity : (monad.id_map _)^.symm
 
 lemma uniformity_eq_symm : uniformity = (@prod.swap α α) <$> uniformity :=
 le_antisymm uniformity_le_symm symm_le_uniformity
+
+instance topological_space_of_uniformity : topological_space α :=
+{ open'       := λs, ∀x∈s, { p : α × α | p.1 = x → p.2 ∈ s } ∈ (uniformity.sets : set (set (α×α))),
+  open_univ   := by simp; intros; apply univ_mem_sets,
+  open_inter  := take s t hs ht x ⟨xs, xt⟩,
+    uniformity.upwards_sets (inter_mem_sets (hs x xs) (ht x xt)) $
+      take p ⟨ps, pt⟩ h, ⟨ps h, pt h⟩,
+  open_sUnion := take s hs x ⟨t, ts, xt⟩,
+    uniformity.upwards_sets (hs t ts x xt) $
+      take p ph h, ⟨t, ts, ph h⟩ }
+
+lemma mem_nhds_uniformity_eq {x : α} {s : set α} :
+  (s ∈ (nhds x).sets) ↔ ({p : α × α | p.1 = x → p.2 ∈ s} ∈ (@uniformity α _).sets) :=
+⟨ begin
+    simp [mem_nhds_sets_iff],
+    exact take ⟨t, ht, ts, xt⟩, uniformity.upwards_sets (ht x xt) $
+      take ⟨x', y⟩ h eq, ts $ h eq
+  end
+, take hs, 
+  mem_nhds_sets_iff.mpr $ ⟨{x | {p : α × α | p.1 = x → p.2 ∈ s} ∈ (@uniformity α _).sets},
+    take x', assume hx' : {p : α × α | p.fst = x' → p.snd ∈ s} ∈ (@uniformity α _).sets,
+      refl_mem_uniformity hx' rfl,
+    take x' hx',
+      let ⟨t, ht, tr⟩ := trans_mem_uniformity_sets hx' in
+      uniformity.upwards_sets ht $
+      take ⟨a, b⟩ hp' (eq : a = x'),
+      have hp : (x', b) ∈ t, from eq ▸ hp',
+      show {p : α × α | p.fst = b → p.snd ∈ s} ∈ (@uniformity α _).sets,
+        from uniformity.upwards_sets ht $
+          take ⟨a, b'⟩ hp' (heq : a = b),
+          have (b, b') ∈ t, from heq ▸ hp',
+          have (x', b') ∈ trans_rel t t, from ⟨b, hp, this⟩,
+          show b' ∈ s,
+            from tr this rfl,
+    hs⟩⟩
+
+#exit
 
 /- neighbourhood -/
 definition nhds (x : α) : filter α := uniformity^.lift' (λs:set (α×α), {y | (x, y) ∈ s})
@@ -333,9 +390,9 @@ calc map (λx:α×α, (nhds_cauchy x.1, nhds_cauchy x.2)) uniformity ≤
     @uniformity_lift_le_trans  α (Cauchy α × Cauchy α) _ (principal ∘ gen)
       (monotone_comp monotone_gen monotone_principal)
 
-lemma complete_completion_space : @complete (Cauchy α) completion_space :=
-take f hf,
+lemma nhds_cauchy_dense : closure (nhds_cauchy ' univ) = univ :=
 _
+
 
 end
 

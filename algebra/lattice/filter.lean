@@ -172,6 +172,9 @@ lemma exists_sets_subset_iff {f : filter α} {x : set α} :
 ⟨take ⟨y, hy, yx⟩, f^.upwards_sets hy yx,
   take hx, ⟨x, hx, subset.refl _⟩⟩
 
+lemma monotone_mem_sets {f : filter α} : monotone (λs, s ∈ f^.sets) :=
+take s t hst h, f^.upwards_sets h hst
+
 def principal (s : set α) : filter α :=
 { filter .
   sets          := {t | s ⊆ t},
@@ -554,6 +557,9 @@ by rw [lift_sets_eq hg]; simp
 lemma lift_mono (hf : f₁ ≤ f₂) (hg : g₁ ≤ g₂) : f₁^.lift g₁ ≤ f₂^.lift g₂ :=
 infi_le_infi $ take s, infi_le_infi2 $ take hs, ⟨hf hs, hg s⟩
 
+lemma lift_mono' (hg : ∀s∈f^.sets, g₁ s ≤ g₂ s) : f^.lift g₁ ≤ f^.lift g₂ :=
+infi_le_infi $ take s, infi_le_infi $ take hs, hg s hs
+
 lemma map_lift_eq {m : β → γ} (hg : monotone g) :
   map m (f^.lift g) = f^.lift (map m ∘ g) :=
 have monotone (map m ∘ g),
@@ -622,6 +628,9 @@ by simp [filter.lift', @mem_lift_iff α β f _ this]
 lemma lift'_mono (hf : f₁ ≤ f₂) (hh : h₁ ≤ h₂) : f₁^.lift' h₁ ≤ f₂^.lift' h₂ :=
 lift_mono hf $ take s, principal_mono.mpr $ hh s
 
+lemma lift'_mono' (hh : ∀s∈f^.sets, h₁ s ⊆ h₂ s) : f^.lift' h₁ ≤ f^.lift' h₂ :=
+infi_le_infi $ take s, infi_le_infi $ take hs, principal_mono.mpr $ hh s hs
+
 lemma map_lift'_eq {m : β → γ} (hh : monotone h) : map m (f^.lift' h) = f^.lift' (image m ∘ h) :=
 calc map m (f^.lift' h) = f^.lift (map m ∘ principal ∘ h) :
     map_lift_eq $ monotone_comp hh monotone_principal
@@ -650,6 +659,10 @@ lemma lift'_lift'_assoc {f : filter α} {g : set α → set β} {h : set β → 
   (hg : monotone g) (hh : monotone h) :
   (f^.lift' g)^.lift' h = f^.lift' (λs, h (g s)) :=
 lift_lift'_assoc hg (monotone_comp hh monotone_principal)
+
+lemma lift'_lift_assoc {f : filter α} {g : set α → filter β} {h : set β → set γ}
+  (hg : monotone g) : (f^.lift g)^.lift' h = f^.lift (λs, (g s)^.lift' h) :=
+lift_assoc hg
 
 lemma lift_lift'_same_le_lift' {f : filter α} {g : set α → set α → set β} :
   f^.lift (λs, f^.lift' (g s)) ≤ f^.lift' (λs, g s s) :=
@@ -686,6 +699,18 @@ lemma prod_mem_prod {s : set α} {t : set β} {f : filter α} {g : filter β}
 le_principal_iff^.mp $ show filter.prod f g ≤ principal (set.prod s t),
   from infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le t $ infi_le _ ht
 
+lemma mem_prod_iff {s : set (α×β)} {f : filter α} {g : filter β} :
+  s ∈ (filter.prod f g)^.sets ↔ (∃t₁∈f^.sets, ∃t₂∈g^.sets, set.prod t₁ t₂ ⊆ s) :=
+begin
+  delta filter.prod,
+  rw [mem_lift_iff],
+  apply exists_congr, intro t₁,
+  apply exists_congr, intro ht₁,
+  rw [mem_lift'_iff],
+  exact set.monotone_prod monotone_const monotone_id,
+  exact (monotone_lift' monotone_const $ monotone_lam $ take b, set.monotone_prod monotone_id monotone_const)
+end
+
 lemma prod_mono {f₁ f₂ : filter α} {g₁ g₂ : filter β} (hf : f₁ ≤ f₂) (hg : g₁ ≤ g₂) :
   filter.prod f₁ g₁ ≤ filter.prod f₂ g₂ :=
 lift_mono hf $ take s, lift'_mono hg $ le_refl _
@@ -698,6 +723,22 @@ eq.symm $ calc map (λp:β×α, (p.2, p.1)) (filter.prod g f) =
     congr_arg g^.lift $ funext $ take s, map_lift'_eq $ take a b h, set.prod_mono (subset.refl s) h
   ... = (g^.lift $ λt, f^.lift' $ λs, set.prod s t) : by simp [set.image_swap_prod]
   ... = filter.prod f g : lift_comm
+
+lemma prod_lift'_lift' {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x} 
+  {f₁ : filter α₁} {f₂ : filter α₂} {g₁ : set α₁ → set β₁} {g₂ : set α₂ → set β₂}
+  (hg₁ : monotone g₁) (hg₂ : monotone g₂) :
+  filter.prod (f₁.lift' g₁) (f₂.lift' g₂) = f₁.lift (λs, f₂.lift' (λt, set.prod (g₁ s) (g₂ t))) :=
+begin
+  delta filter.prod,
+  rw [lift_lift'_assoc],
+  apply congr_arg, apply funext, intro x,
+  rw [lift'_lift'_assoc],
+  exact hg₂,
+  exact set.monotone_prod monotone_const monotone_id,
+  exact hg₁,
+  exact (monotone_lift' monotone_const $ monotone_lam $
+    take x, set.monotone_prod monotone_id monotone_const)
+end
 
 end prod
 

@@ -20,7 +20,11 @@ def trans_rel {α : Type u} (r₁ r₂ : set (α×α)) :=
 
 lemma monotone_trans_rel [weak_order β] {f g : β → set (α×α)}
   (hf : monotone f) (hg : monotone g) : monotone (λx, trans_rel (f x) (g x)) :=
-take a b h p ⟨z, h₁, h₂⟩, ⟨z, hf h h₁ , hg h h₂⟩
+take a b h p ⟨z, h₁, h₂⟩, ⟨z, hf h h₁, hg h h₂⟩
+
+lemma monotone_inter [weak_order β] {f g : β → set α}
+  (hf : monotone f) (hg : monotone g) : monotone (λx, (f x) ∩ (g x)) :=
+take a b h x ⟨h₁, h₂⟩, ⟨hf h h₁, hg h h₂⟩
 
 lemma empty_in_sets_eq_bot {f : filter α} : ∅ ∈ f^.sets ↔ f = ⊥ :=
 ⟨take h, bot_unique $ take s _, f.upwards_sets h (empty_subset s),
@@ -381,9 +385,16 @@ calc map (λx:α×α, (nhds_cauchy x.1, nhds_cauchy x.2)) uniformity ≤
     @uniformity_lift_le_trans  α (Cauchy α × Cauchy α) _ (principal ∘ gen)
       (monotone_comp monotone_gen monotone_principal)
 
-lemma nhds_cauchy_dense : closure (nhds_cauchy ' univ) = univ :=
-_
-
+lemma nhds_cauchy_dense : ∀x, x ∈ closure (nhds_cauchy ' univ) :=
+take x,
+have ∀t∈(@uniformity (Cauchy α) _).sets, ∃y:α, (x, nhds_cauchy y) ∈ t,
+  from _,
+begin
+  simp [closure_eq_nhds, nhds_eq, lift'_inf_principal_eq],
+  exact lift'_neq_bot ⟨x⟩ 
+    (monotone_inter monotone_const monotone_vimage)
+    _
+end
 
 end
 

@@ -39,7 +39,7 @@ theorem bind_assoc : ∀ {α β γ : Type u} (x : m α) (f : α → m β) (g : �
 end monad
 
 namespace lattice
-variables {α : Type u} [complete_lattice α]
+variables {α : Type u} {ι : Sort v} [complete_lattice α]
 
 lemma Inf_eq_finite_sets {s : set α} :
   Inf s = (⨅ t ∈ { t | finite t ∧ t ⊆ s}, Inf t) :=
@@ -536,6 +536,25 @@ lemma mem_return_sets {a : α} {s : set α} : s ∈ (return a : filter α)^.sets
 show s ∈ (principal {a})^.sets ↔ a ∈ s,
   by simp
 
+lemma infi_neq_bot_of_directed {f : ι → filter α}
+  (hd : directed (≤) f) (hb : ∀i, f i ≠ ⊥) (hn : nonempty α) : (infi f) ≠ ⊥ :=
+let ⟨x⟩ := hn in
+take h, have he: ∅ ∈ (infi f)^.sets, from h.symm ▸ mem_bot_sets,
+classical.by_cases
+  (suppose nonempty ι,
+    have ∃i, ∅ ∈ (f i).sets,
+      by rw [infi_sets_eq hd this] at he; simp at he; assumption,
+    let ⟨i, hi⟩ := this in
+    hb i $ bot_unique $
+    take s _, (f i)^.upwards_sets hi $ empty_subset _)
+  (suppose ¬ nonempty ι,
+    have univ ⊆ (∅ : set α),
+    begin
+      rw [-principal_mono, principal_univ, principal_empty, -h],
+      exact (le_infi $ take i, false.elim $ this ⟨i⟩)
+    end,
+    this $ mem_univ x)
+
 section lift
 
 protected def lift (f : filter α) (g : set α → filter β) :=
@@ -612,6 +631,16 @@ lemma monotone_lift [weak_order γ] {f : γ → filter α} {g : γ → set α �
   (hf : monotone f) (hg : monotone g) : monotone (λc, (f c)^.lift (g c)) :=
 take a b h, lift_mono (hf h) (hg h)
 
+lemma lift_neq_bot (hn : nonempty β) (hg : ∀s∈f.sets, g s ≠ ⊥) (hm : monotone g) :
+  f^.lift g ≠ ⊥ :=
+have (⨅s : { s // s ∈ f^.sets}, g s.val) = f^.lift g,
+  from infi_subtype,
+this ▸ infi_neq_bot_of_directed
+  (take ⟨a, ha⟩ ⟨b, hb⟩, ⟨⟨a ∩ b, inter_mem_sets ha hb⟩, 
+    hm $ inter_subset_left _ _, hm $ inter_subset_right _ _⟩)
+  (take ⟨a, ha⟩, hg a ha)
+  hn
+
 end
 
 section
@@ -648,25 +677,43 @@ lemma monotone_lift' [weak_order γ] {f : γ → filter α} {g : γ → set α �
   (hf : monotone f) (hg : monotone g) : monotone (λc, (f c)^.lift' (g c)) :=
 take a b h, lift'_mono (hf h) (hg h)
 
-lemma lift_lift'_assoc {f : filter α} {g : set α → set β} {h : set β → filter γ}
+lemma lift_lift'_assoc {g : set α → set β} {h : set β → filter γ}
   (hg : monotone g) (hh : monotone h) :
   (f^.lift' g)^.lift h = f^.lift (λs, h (g s)) :=
 calc (f^.lift' g)^.lift h = f^.lift (λs, (principal (g s))^.lift h) :
     lift_assoc (monotone_comp hg monotone_principal)
   ... = f^.lift (λs, h (g s)) : by simp [lift_principal, hh]
 
-lemma lift'_lift'_assoc {f : filter α} {g : set α → set β} {h : set β → set γ}
+lemma lift'_lift'_assoc {g : set α → set β} {h : set β → set γ}
   (hg : monotone g) (hh : monotone h) :
   (f^.lift' g)^.lift' h = f^.lift' (λs, h (g s)) :=
 lift_lift'_assoc hg (monotone_comp hh monotone_principal)
 
-lemma lift'_lift_assoc {f : filter α} {g : set α → filter β} {h : set β → set γ}
+lemma lift'_lift_assoc {g : set α → filter β} {h : set β → set γ}
   (hg : monotone g) : (f^.lift g)^.lift' h = f^.lift (λs, (g s)^.lift' h) :=
 lift_assoc hg
 
-lemma lift_lift'_same_le_lift' {f : filter α} {g : set α → set α → set β} :
+lemma lift_lift'_same_le_lift' {g : set α → set α → set β} :
   f^.lift (λs, f^.lift' (g s)) ≤ f^.lift' (λs, g s s) :=
 le_infi $ take s, le_infi $ take hs, infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le s $ infi_le _ hs
+
+lemma lift'_inf_principal_eq {h : set α → set β} {s : set β} :
+  f^.lift' h ⊓ principal s = f^.lift' (λt, h t ∩ s) :=
+le_antisymm
+  (le_infi $ take t, le_infi $ take ht,
+    calc filter.lift' f h ⊓ principal s ≤ principal (h t) ⊓ principal s :
+        inf_le_inf (infi_le_of_le t $ infi_le _ ht) (le_refl _)
+      ... = _ : by simp)
+  (le_inf
+    (le_infi $ take t, le_infi $ take ht,
+      infi_le_of_le t $ infi_le_of_le ht $ by simp; exact inter_subset_right _ _)
+    (infi_le_of_le univ $ infi_le_of_le univ_mem_sets $ by simp; exact inter_subset_left _ _))
+
+lemma lift'_neq_bot (hn : nonempty β) (hh : monotone h) (hb : ∀t∈f^.sets, h t ≠ ∅) :
+  f^.lift' h ≠ ⊥ :=
+lift_neq_bot hn
+  (take s hs h, hb s hs $ principal_eq_iff_eq.mp h)
+  (monotone_comp hh monotone_principal)
 
 end
 

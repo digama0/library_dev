@@ -386,12 +386,18 @@ calc map (λx:α×α, (nhds_cauchy x.1, nhds_cauchy x.2)) uniformity ≤
       (monotone_comp monotone_gen monotone_principal)
 
 lemma nhds_cauchy_dense : ∀x, x ∈ closure (nhds_cauchy ' univ) :=
-take x,
-have ∀t∈(@uniformity (Cauchy α) _).sets, ∃y:α, (x, nhds_cauchy y) ∈ t,
-  from _,
+take f,
+have ∀t∈(@uniformity (Cauchy α) _).sets, ∃y:α, (f, nhds_cauchy y) ∈ t, from 
+  take t ht,
+  let ⟨t', ht', tt'⟩ := (mem_lift'_iff monotone_gen).mp ht in
+  have t' ∈ (filter.prod (f.val) (f.val)).sets,
+    from f.property.left ht',
+  let ⟨t₁, ht₁, t₂, ht₂, h⟩ := mem_prod_iff.mp this in
+  let ⟨x, hx⟩ := inhabited_of_mem_sets f.property.right ht₁ in
+  ⟨x, tt' $ mem_prod_iff.mpr begin dsimp [nhds_cauchy] end⟩,
 begin
   simp [closure_eq_nhds, nhds_eq, lift'_inf_principal_eq],
-  exact lift'_neq_bot ⟨x⟩ 
+  exact lift'_neq_bot ⟨f⟩ 
     (monotone_inter monotone_const monotone_vimage)
     _
 end

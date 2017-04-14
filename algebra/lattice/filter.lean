@@ -599,7 +599,7 @@ le_antisymm
         let ⟨y, hy, h_eq⟩ := h in
         show x ∈ t, from h_eq ▸ hy⟩⟩)
 
-lemma lift_comm {f : filter α} {g : filter β} {h : set α → set β → filter γ} :
+lemma lift_comm {g : filter β} {h : set α → set β → filter γ} :
   f^.lift (λs, g^.lift (h s)) = g^.lift (λt, f^.lift (λs, h s t)) :=
 le_antisymm
   (le_infi $ take i, le_infi $ take hi, le_infi $ take j, le_infi $ take hj,
@@ -607,8 +607,7 @@ le_antisymm
   (le_infi $ take i, le_infi $ take hi, le_infi $ take j, le_infi $ take hj,
     infi_le_of_le j $ infi_le_of_le hj $ infi_le_of_le i $ infi_le _ hi)
 
-lemma lift_assoc {f : filter α} {g : set α → filter β} {h : set β → filter γ}
-  (hg : monotone g)  :
+lemma lift_assoc {h : set β → filter γ} (hg : monotone g)  :
   (f^.lift g)^.lift h = f^.lift (λs, (g s)^.lift h) :=
 le_antisymm
   (le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht,
@@ -617,9 +616,20 @@ le_antisymm
     let ⟨s, hs, h'⟩ := (mem_lift_iff hg)^.mp ht in
     infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le t $ infi_le _ h')
 
-lemma lift_lift_same_le_lift {f : filter α} {g : set α → set α → filter β} :
+lemma lift_lift_same_le_lift {g : set α → set α → filter β} :
   f^.lift (λs, f^.lift (g s)) ≤ f^.lift (λs, g s s) :=
 le_infi $ take s, le_infi $ take hs, infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le s $ infi_le _ hs
+
+lemma lift_lift_same_eq_lift {g : set α → set α → filter β}
+  (hg₁ : ∀s, monotone (λt, g s t)) (hg₂ : ∀t, monotone (λs, g s t)):
+  f^.lift (λs, f^.lift (g s)) = f^.lift (λs, g s s) :=
+le_antisymm
+  lift_lift_same_le_lift
+  (le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht,
+    infi_le_of_le (s ∩ t) $
+    infi_le_of_le (inter_mem_sets hs ht) $
+    calc g (s ∩ t) (s ∩ t) ≤ g s (s ∩ t) : hg₂ (s ∩ t) (inter_subset_left _ _)
+      ... ≤ g s t                        : hg₁ s (inter_subset_right _ _))
 
 lemma lift_principal {s : set α} (hg : monotone g) :
   (principal s)^.lift g = g s :=
@@ -695,7 +705,14 @@ lift_assoc hg
 
 lemma lift_lift'_same_le_lift' {g : set α → set α → set β} :
   f^.lift (λs, f^.lift' (g s)) ≤ f^.lift' (λs, g s s) :=
-le_infi $ take s, le_infi $ take hs, infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le s $ infi_le _ hs
+lift_lift_same_le_lift
+
+lemma lift_lift'_same_eq_lift' {g : set α → set α → set β}
+  (hg₁ : ∀s, monotone (λt, g s t)) (hg₂ : ∀t, monotone (λs, g s t)):
+  f^.lift (λs, f^.lift' (g s)) = f^.lift' (λs, g s s) :=
+lift_lift_same_eq_lift
+  (take s, monotone_comp monotone_id $ monotone_comp (hg₁ s) monotone_principal)
+  (take t, monotone_comp (hg₂ t) monotone_principal)
 
 lemma lift'_inf_principal_eq {h : set α → set β} {s : set β} :
   f^.lift' h ⊓ principal s = f^.lift' (λt, h t ∩ s) :=
@@ -746,6 +763,11 @@ lemma prod_mem_prod {s : set α} {t : set β} {f : filter α} {g : filter β}
 le_principal_iff^.mp $ show filter.prod f g ≤ principal (set.prod s t),
   from infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le t $ infi_le _ ht
 
+lemma prod_same_eq {f : filter α} : filter.prod f f = f^.lift' (λt, set.prod t t) :=
+lift_lift'_same_eq_lift'
+  (take s, set.monotone_prod monotone_const monotone_id)
+  (take t, set.monotone_prod monotone_id monotone_const)
+
 lemma mem_prod_iff {s : set (α×β)} {f : filter α} {g : filter β} :
   s ∈ (filter.prod f g)^.sets ↔ (∃t₁∈f^.sets, ∃t₂∈g^.sets, set.prod t₁ t₂ ⊆ s) :=
 begin
@@ -757,6 +779,10 @@ begin
   exact set.monotone_prod monotone_const monotone_id,
   exact (monotone_lift' monotone_const $ monotone_lam $ take b, set.monotone_prod monotone_id monotone_const)
 end
+
+lemma mem_prod_same_iff {s : set (α×α)} {f : filter α} :
+  s ∈ (filter.prod f f)^.sets ↔ (∃t∈f^.sets, set.prod t t ⊆ s) :=
+by rw [prod_same_eq, mem_lift'_iff]; exact set.monotone_prod monotone_id monotone_id
 
 lemma prod_mono {f₁ f₂ : filter α} {g₁ g₂ : filter β} (hf : f₁ ≤ f₂) (hg : g₁ ≤ g₂) :
   filter.prod f₁ g₁ ≤ filter.prod f₂ g₂ :=

@@ -45,6 +45,15 @@ rfl
 lemma prod.mk.eta : ∀{p : α × β}, (p.1, p.2) = p
 | (a, b) := rfl
 
+@[simp]
+lemma prod_mk_mem_set_prod_eq {a : α} {b : β} {s : set α} {t : set β} :
+  (a, b) ∈ set.prod s t = (a ∈ s ∧ b ∈ t) :=
+rfl
+
+lemma prod_mk_mem_trans_rel {a b c : α} {s t : set (α×α)} (h₁ : (a, c) ∈ s) (h₂ : (c, b) ∈ t) :
+  (a, b) ∈ trans_rel s t :=
+⟨c, h₁, h₂⟩
+
 def prod.swap : (α×β) → (β×α) := λp, (p.2, p.1)
 
 @[simp]
@@ -150,7 +159,7 @@ instance topological_space_of_uniformity : topological_space α :=
     uniformity.upwards_sets (hs t ts x xt) $
       take p ph h, ⟨t, ts, ph h⟩ }
 
-lemma mem_nhds_uniformity_eq {x : α} {s : set α} :
+lemma mem_nhds_uniformity_iff {x : α} {s : set α} :
   (s ∈ (nhds x).sets) ↔ ({p : α × α | p.1 = x → p.2 ∈ s} ∈ (@uniformity α _).sets) :=
 ⟨ begin
     simp [mem_nhds_sets_iff],
@@ -180,7 +189,7 @@ lemma nhds_eq {x : α} : nhds x = uniformity^.lift' (λs:set (α×α), {y | (x, 
 filter_eq $ set.ext $ take s,
   begin
     rw [mem_lift'_iff], tactic.swap, apply monotone_vimage,
-    simp [mem_nhds_uniformity_eq],
+    simp [mem_nhds_uniformity_iff],
     exact ⟨take h, ⟨_, h, take y h, h rfl⟩,
       take ⟨t, h₁, h₂⟩,
       uniformity.upwards_sets h₁ $
@@ -387,19 +396,28 @@ calc map (λx:α×α, (nhds_cauchy x.1, nhds_cauchy x.2)) uniformity ≤
 
 lemma nhds_cauchy_dense : ∀x, x ∈ closure (nhds_cauchy ' univ) :=
 take f,
-have ∀t∈(@uniformity (Cauchy α) _).sets, ∃y:α, (f, nhds_cauchy y) ∈ t, from 
-  take t ht,
-  let ⟨t', ht', tt'⟩ := (mem_lift'_iff monotone_gen).mp ht in
+have h_ex : ∀s∈(@uniformity (Cauchy α) _).sets, ∃y:α, (f, nhds_cauchy y) ∈ s, from
+  take s hs,
+  let ⟨t'', ht''₁, (ht''₂ : gen t'' ⊆ s)⟩ := (mem_lift'_iff monotone_gen).mp hs in
+  let ⟨t', ht'₁, ht'₂⟩ := trans_mem_uniformity_sets ht''₁ in
   have t' ∈ (filter.prod (f.val) (f.val)).sets,
-    from f.property.left ht',
-  let ⟨t₁, ht₁, t₂, ht₂, h⟩ := mem_prod_iff.mp this in
-  let ⟨x, hx⟩ := inhabited_of_mem_sets f.property.right ht₁ in
-  ⟨x, tt' $ mem_prod_iff.mpr begin dsimp [nhds_cauchy] end⟩,
+    from f.property.left ht'₁,
+  let ⟨t, ht, (h : set.prod t t ⊆ t')⟩ := mem_prod_same_iff.mp this in
+  let ⟨x, (hx : x ∈ t)⟩ := inhabited_of_mem_sets f.property.right ht in
+  have t'' ∈ (filter.prod f.val (nhds x)).sets,
+    from mem_prod_iff.mpr ⟨t, ht, {y:α | (x, y) ∈ t'}, mem_nhds_left ht'₁,
+      take ⟨a, b⟩ ⟨(h₁ : a ∈ t), (h₂ : (x, b) ∈ t')⟩,
+        ht'₂ $ prod_mk_mem_trans_rel (@h (a, x) ⟨h₁, hx⟩) h₂⟩,
+  ⟨x, ht''₂ $ by dsimp [gen]; exact this⟩,
 begin
   simp [closure_eq_nhds, nhds_eq, lift'_inf_principal_eq],
-  exact lift'_neq_bot ⟨f⟩ 
+  exact lift'_neq_bot ⟨f⟩
     (monotone_inter monotone_const monotone_vimage)
-    _
+    (take s hs,
+      let ⟨y, hy⟩ := h_ex s hs in
+      have nhds_cauchy y ∈ nhds_cauchy ' univ ∩ {y : Cauchy α | (f, y) ∈ s},
+        from ⟨mem_image_of_mem _ $ mem_univ y, hy⟩,
+      ne_empty_of_mem this)
 end
 
 end

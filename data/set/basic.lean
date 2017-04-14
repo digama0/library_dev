@@ -520,6 +520,9 @@ theorem mem_image {f : α → β} {s : set α} {x : α} {y : β} (h₁ : x ∈ s
 theorem mem_image_of_mem (f : α → β) {x : α} {a : set α} (h : x ∈ a) : f x ∈ image f a :=
 mem_image h rfl
 
+theorem mono_image {f : α → β} {s t : set α} (h : s ⊆ t) : image f s ⊆ image f t :=
+take x ⟨y, hy, y_eq⟩, y_eq ▸ mem_image_of_mem _ $ h hy
+
 /- image and vimage are a Galois connection -/
 theorem image_subset_iff_subset_vimage {s : set α} {t : set β} {f : α → β} :
   set.image f s ⊆ t ↔ s ⊆ {x | f x ∈ t} :=
@@ -937,6 +940,9 @@ lemma vimage_mono {s t : set β} (h : s ⊆ t) : vimage f s ⊆ vimage f t :=
 take x hx, h hx
 
 lemma monotone_vimage : monotone (vimage f) := take a b h, vimage_mono h
+
+lemma vimage_image_eq {s : set α} (h : ∀{x y}, f x = f y → x = y) : vimage f (image f s) = s :=
+set.ext $ take x, ⟨take ⟨y, hy, y_eq⟩, h y_eq ▸ hy, take hx, mem_image_of_mem _ hx⟩
 
 @[simp] lemma vimage_univ : vimage f univ = univ := rfl
 

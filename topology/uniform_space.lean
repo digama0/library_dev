@@ -8,7 +8,51 @@ Theory of uniform spaces.
 import algebra.lattice.filter .topological_space
 open set lattice filter
 
-universes u v
+universes u v w x
+
+lemma set.prod_image_image_eq {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x}
+  {s₁ : set α₁} {s₂ : set α₂} {m₁ : α₁ → β₁} {m₂ : α₂ → β₂} :
+  set.prod (image m₁ s₁) (image m₂ s₂) = image (λp:α₁×α₂, (m₁ p.1, m₂ p.2)) (set.prod s₁ s₂) :=
+set.ext $ take ⟨b₁, b₂⟩,
+  ⟨take ⟨⟨a₁, ha₁, (eq₁ : m₁ a₁ = b₁)⟩, ⟨a₂, ha₂, (eq₂ : m₂ a₂ = b₂)⟩⟩,
+    mem_image
+      (show (a₁, a₂) ∈ set.prod s₁ s₂, from ⟨ha₁, ha₂⟩)
+      (by simp [eq₁, eq₂]),
+    take ⟨⟨a₁, a₂⟩, ⟨ha₁, ha₂⟩, eq⟩, eq ▸ ⟨mem_image_of_mem m₁ ha₁, mem_image_of_mem m₂ ha₂⟩⟩
+
+namespace filter
+variables {α : Type u} {β : Type v}
+
+def vmap (m : α → β) (f : filter β) : filter α :=
+{ filter .
+  sets          := { s | ∃t∈f.sets, vimage m t ⊆ s },
+  inhabited     := ⟨univ, univ, univ_mem_sets, by simp⟩,
+  upwards_sets  := take a b ⟨a', ha', ma'a⟩ ab, ⟨a', ha', subset.trans ma'a ab⟩,
+  directed_sets := take a ⟨a', ha₁, ha₂⟩ b ⟨b', hb₁, hb₂⟩,
+    ⟨vimage m (a' ∩ b'),
+      ⟨a' ∩ b', inter_mem_sets ha₁ hb₁, subset.refl _⟩,
+      subset.trans (vimage_mono $ inter_subset_left _ _) ha₂,
+      subset.trans (vimage_mono $ inter_subset_right _ _) hb₂⟩ }
+
+lemma prod_map_map_eq {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x}
+  {f₁ : filter α₁} {f₂ : filter α₂} {m₁ : α₁ → β₁} {m₂ : α₂ → β₂} :
+  filter.prod (map m₁ f₁) (map m₂ f₂) = map (λp:α₁×α₂, (m₁ p.1, m₂ p.2)) (filter.prod f₁ f₂) :=
+begin
+  simp [filter.prod],
+  rw [map_lift_eq], tactic.swap, exact (monotone_lift' monotone_const $
+    monotone_lam $ take t, monotone_prod monotone_id monotone_const),
+  rw [map_lift_eq2], tactic.swap, exact (monotone_lift' monotone_const $
+    monotone_lam $ take t, monotone_prod monotone_id monotone_const),
+  apply congr_arg, apply funext, intro t,
+  dsimp,
+  rw [map_lift'_eq], tactic.swap, exact monotone_prod monotone_const monotone_id,
+  rw [map_lift'_eq2], tactic.swap, exact monotone_prod monotone_const monotone_id,
+  apply congr_arg, apply funext, intro t,
+  exact set.prod_image_image_eq
+end
+
+end filter
+
 
 section
 variables {α : Type u} {β : Type v}
@@ -239,14 +283,11 @@ calc uniformity.lift (λs, uniformity.lift (λt, f (trans_rel s t))) =
 
 /- uniform continuity -/
 
-definition uniform [uniform_space α] [uniform_space β] (f : α → β) :=
+definition uniform [uniform_space β] (f : α → β) :=
 filter.map (λx:α×α, (f x.1, f x.2)) uniformity ≤ uniformity
 
 /- cauchy filters -/
-definition cauchy (f : filter α) : Prop := filter.prod f f ≤ uniformity
-
-definition complete : Prop :=
-∀f:filter α, cauchy f → ∃x, f ≤ nhds x
+definition cauchy (f : filter α) := filter.prod f f ≤ uniformity
 
 lemma cauchy_downwards {f g : filter α} (h_c : cauchy f) (h_le : g ≤ f) : cauchy g :=
 le_trans (filter.prod_mono h_le h_le) h_c
@@ -276,12 +317,75 @@ calc filter.prod (nhds a) (nhds a) ≤
     lift_mono' $ take s hs, lift'_mono' $ take t ht, take ⟨b, c⟩ ⟨ha, hb⟩, ⟨a, ha, hb⟩
   ... ≤ uniformity : trans_le_uniformity'
 
-def Cauchy (α : Type u) [uniform_space α] : Type u := { f : filter α // cauchy f ∧ f ≠ bot }
+lemma cauchy_map [uniform_space β] {f : filter α} {m : α → β}
+  (hm : uniform m) (hf : cauchy f) : cauchy (map m f) :=
+calc filter.prod (map m f) (map m f) = map (λp:α×α, (m p.1, m p.2)) (filter.prod f f) : filter.prod_map_map_eq
+  ... ≤ map (λp:α×α, (m p.1, m p.2)) uniformity : map_mono hf
+  ... ≤ uniformity : hm
+
+/- complete space -/
+
+@[class]
+definition complete (α : Type u) [uniform_space α] := ∀f:filter α, cauchy f → ∃x, f ≤ nhds x
+
+lemma complete_extension [uniform_space β] {m : β → α}
+  (hm : uniform m) (dense : ∀x, x ∈ closure (m ' univ))
+  (h : ∀f:filter β, cauchy f → ∃x:α, map m f ≤ nhds x) :
+  complete α :=
+take (f : filter α), assume hf : cauchy f,
+let g := uniformity.lift (λs : set (α × α), f^.lift' (λt, {y : α| ∃x:α, x ∈ t ∧ (x, y) ∈ s})) in
+have cauchy g, from
+  take s hs,
+  let ⟨s₁, hs₁, (trans_s₁ : trans_rel s₁ s₁ ⊆ s)⟩ := trans_mem_uniformity_sets hs in
+  let ⟨s₂, hs₂, (trans_s₂ : trans_rel s₂ s₂ ⊆ s₁)⟩ := trans_mem_uniformity_sets hs₁ in
+  have s₂ ∈ (filter.prod f f).sets, from hf hs₂,
+  let ⟨t, ht, (prod_t : set.prod t t ⊆ s₂)⟩ := mem_prod_same_iff.mp this in
+
+  have vimage prod.swap s₁ ∈ (@uniformity α _).sets,
+    from symm_le_uniformity hs₁,
+  have hg₁ : {y : α| ∃x:α, x ∈ t ∧ (x, y) ∈ vimage prod.swap s₁} ∈ g.sets,
+    from mem_lift this $ @mem_lift' α α f _ t ht,
+
+  have hg₂ : {y : α| ∃x:α, x ∈ t ∧ (x, y) ∈ s₂} ∈ g.sets,
+    from mem_lift hs₂ $ @mem_lift' α α f _ t ht,
+
+  have hg : set.prod {y : α| ∃x:α, x ∈ t ∧ (x, y) ∈ vimage prod.swap s₁}
+                     {y : α| ∃x:α, x ∈ t ∧ (x, y) ∈ s₂} ∈ (filter.prod g g).sets,
+    from @prod_mem_prod α α _ _ g g hg₁ hg₂,
+
+  (filter.prod g g).upwards_sets hg
+    (take ⟨a, b⟩ ⟨⟨c₁, c₁t, (hc₁ : (a, c₁) ∈ s₁)⟩, ⟨c₂, c₂t, (hc₂ : (c₂, b) ∈ s₂)⟩⟩,
+      have (c₁, c₂) ∈ set.prod t t, from ⟨c₁t, c₂t⟩,
+      trans_s₁ $ prod_mk_mem_trans_rel hc₁ $
+      trans_s₂ $ prod_mk_mem_trans_rel (prod_t this) hc₂),
+
+have cauchy (filter.vmap m g),
+  from _, 
+let ⟨x, (hx : map m (filter.vmap m g) ≤ nhds x)⟩ := h _ this in
+
+⟨x,
+calc f ≤ g :
+    le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht,
+    le_principal_iff.mpr $
+    f.upwards_sets ht $
+    take x hx, ⟨x, hx, refl_mem_uniformity hs⟩
+  ... ≤ map m (filter.vmap m g) :
+    take s ⟨t, ht, h_sub⟩, _ -- use density
+  ... ≤ nhds x : hx⟩
 
 end uniform_space
 end
 
-namespace uniform_space.Cauchy
+/-- Space of Cauchy filters 
+
+This is essentially the completion of a uniform space. The embeddings are the neighbourhood filters.
+This space is not minimal, the separated uniform space (i.e. quotiented on the intersection of all
+entourages) is necessary for this.
+-/
+def Cauchy (α : Type u) [uniform_space α] : Type u :=
+{ f : filter α // cauchy f ∧ f ≠ bot }
+
+namespace Cauchy
 
 section
 parameters {α : Type u} [uniform_space α]
@@ -422,4 +526,4 @@ end
 
 end
 
-end uniform_space.Cauchy
+end Cauchy

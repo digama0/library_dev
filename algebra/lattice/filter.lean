@@ -569,6 +569,11 @@ infi_sets_eq'
     hg $ inter_subset_left s t, hg $ inter_subset_right s t⟩)
   ⟨univ, univ_mem_sets⟩
 
+lemma mem_lift {s : set β} {t : set α} (ht : t ∈ f^.sets) (hs : s ∈ (g t)^.sets) :
+  s ∈ (f^.lift g)^.sets :=
+le_principal_iff.mp $ show f^.lift g ≤ principal s,
+  from infi_le_of_le t $ infi_le_of_le ht $ le_principal_iff.mpr hs
+
 lemma mem_lift_iff (hg : monotone g) {s : set β} :
   s ∈ (f^.lift g)^.sets ↔ (∃t∈f^.sets, s ∈ (g t)^.sets) :=
 by rw [lift_sets_eq hg]; simp
@@ -659,6 +664,10 @@ f^.lift (principal ∘ h)
 
 variables {f f₁ f₂ : filter α} {h h₁ h₂ : set α → set β}
 
+lemma mem_lift' {t : set α} (ht : t ∈ f^.sets) : h t ∈ (f^.lift' h)^.sets :=
+le_principal_iff.mp $ show f^.lift' h ≤ principal (h t),
+  from infi_le_of_le t $ infi_le_of_le ht $ le_refl _
+
 lemma mem_lift'_iff (hh : monotone h) {s : set β} : s ∈ (f^.lift' h)^.sets ↔ (∃t∈f^.sets, h t ⊆ s) :=
 have monotone (principal ∘ h),
   from take a b h, principal_mono.mpr $ hh h,
@@ -674,6 +683,10 @@ lemma map_lift'_eq {m : β → γ} (hh : monotone h) : map m (f^.lift' h) = f^.l
 calc map m (f^.lift' h) = f^.lift (map m ∘ principal ∘ h) :
     map_lift_eq $ monotone_comp hh monotone_principal
   ... = f^.lift' (image m ∘ h) : by simp [function.comp, filter.lift']
+
+lemma map_lift'_eq2 {g : set β → set γ} {m : α → β} (hg : monotone g) :
+  (map m f)^.lift' g = f^.lift' (g ∘ image m) :=
+map_lift_eq2 $ monotone_comp hg monotone_principal
 
 lemma lift'_principal {s : set α} (hh : monotone h) :
   (principal s)^.lift' h = principal (h s) :=
@@ -796,6 +809,21 @@ eq.symm $ calc map (λp:β×α, (p.2, p.1)) (filter.prod g f) =
     congr_arg g^.lift $ funext $ take s, map_lift'_eq $ take a b h, set.prod_mono (subset.refl s) h
   ... = (g^.lift $ λt, f^.lift' $ λs, set.prod s t) : by simp [set.image_swap_prod]
   ... = filter.prod f g : lift_comm
+
+lemma prod_lift_lift {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x} 
+  {f₁ : filter α₁} {f₂ : filter α₂} {g₁ : set α₁ → filter β₁} {g₂ : set α₂ → filter β₂}
+  (hg₁ : monotone g₁) (hg₂ : monotone g₂) :
+  filter.prod (f₁.lift g₁) (f₂.lift g₂) = f₁.lift (λs, f₂.lift (λt, filter.prod (g₁ s) (g₂ t))) :=
+begin
+  delta filter.prod,
+  rw [lift_assoc],
+  apply congr_arg, apply funext, intro x,
+  rw [lift_comm],
+  apply congr_arg, apply funext, intro y,
+  rw [lift'_lift_assoc],
+  exact hg₂,
+  exact hg₁
+end
 
 lemma prod_lift'_lift' {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x} 
   {f₁ : filter α₁} {f₂ : filter α₂} {g₁ : set α₁ → set β₁} {g₂ : set α₂ → set β₂}

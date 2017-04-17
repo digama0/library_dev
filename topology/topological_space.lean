@@ -82,6 +82,15 @@ section topological_space
 
 variables {α : Type u} {β : Type v} {ι : Sort w} {a a₁ a₂ : α} {s s₁ s₂ : set α}
 
+lemma topological_space_eq : 
+  ∀{f g : topological_space α}, f^.open' = g^.open' → f = g :=
+begin
+  intros f g h', cases f with a, cases g with b,
+  assert h : a = b, assumption,
+  clear h',
+  subst h
+end
+
 section
 variables [t : topological_space α]
 include t
@@ -275,6 +284,18 @@ calc (nhds a)^.sets = (⋃s∈{s : set α| a ∈ s ∧ open' s}, (principal s)^.
       (supr_le $ take i, supr_le $ take ⟨hi₁, hi₂⟩ t ht, ⟨i, ht, hi₂, hi₁⟩)
       (take t ⟨i, hi₁, hi₂, hi₃⟩, begin simp; exact ⟨i, hi₂, hi₁, hi₃⟩ end)
 
+lemma map_nhds {a : α} {f : α → β} :
+  map f (nhds a) = (⨅ s ∈ {s : set α | a ∈ s ∧ open' s}, principal (image f s)) :=
+calc map f (nhds a) = (⨅ s ∈ {s : set α | a ∈ s ∧ open' s}, map f (principal s)) :
+    map_binfi_eq
+    begin
+      simp,
+      exact take x ⟨hx₁, hx₂⟩ y ⟨hy₁, hy₂⟩, ⟨_, ⟨open_inter hx₁ hy₁, ⟨hx₂, hy₂⟩⟩,
+        ⟨inter_subset_left _ _, inter_subset_right _ _⟩⟩
+    end
+    ⟨univ, by simp⟩
+  ... = _ : by simp
+
 lemma mem_nhds_sets_iff {a : α} {s : set α} :
  s ∈ (nhds a)^.sets ↔ ∃t⊆s, open' t ∧ a ∈ t := 
 by simp [nhds_sets]
@@ -348,18 +369,53 @@ end locally_finite
 
 end topological_space
 
+namespace topological_space
+variables {α : Type u}
+
+inductive generate_open (g : set (set α)) : set α → Prop
+| basic  : ∀s∈g, generate_open s
+| univ   : generate_open univ
+| inter  : ∀s t, generate_open s → generate_open t → generate_open (s ∩ t)
+| sUnion : ∀k, (∀s∈k, generate_open s) → generate_open (⋃₀ k)
+
+def generate_from (g : set (set α)) : topological_space α :=
+{ topological_space .
+  open'       := generate_open g,
+  open_univ   := generate_open.univ g,
+  open_inter  := generate_open.inter,
+  open_sUnion := generate_open.sUnion  }
+
+lemma nhds_generate_from {g : set (set α)} {a : α} :
+  @nhds α (generate_from g) a = (⨅s∈{s | a ∈ s ∧ s ∈ g}, principal s) :=
+le_antisymm
+  (infi_le_infi $ take s, infi_le_infi_const $ take ⟨as, sg⟩, ⟨as, generate_open.basic _ sg⟩)
+  (le_infi $ take s, le_infi $ take ⟨as, hs⟩,
+    have ∀s, generate_open g s → a ∈ s → (⨅s∈{s | a ∈ s ∧ s ∈ g}, principal s) ≤ principal s,
+    begin
+      intros s hs,
+      induction hs,
+      case generate_open.basic s hs
+      { exact take as, infi_le_of_le s $ infi_le _ ⟨as, hs⟩ },
+      case generate_open.univ
+      { rw [principal_univ],
+        exact take _, le_top },
+      case generate_open.inter s t hs' ht' hs ht
+      { exact take ⟨has, hat⟩, calc _ ≤ principal s ⊓ principal t : le_inf (hs has) (ht hat)
+          ... = _ : by simp },
+      case generate_open.sUnion k hk' hk
+      { intro h,
+        simp at h,
+        revert h,
+        exact take ⟨t, hat, htk⟩, calc _ ≤ principal t : hk t htk hat
+          ... ≤ _ : begin simp; exact subset_sUnion_of_mem htk end },
+    end,
+    this s hs as)
+
+end topological_space
+
 section constructions
 
 variables {α : Type u} {β : Type v}
-
-lemma topological_space_eq : 
-  ∀{f g : topological_space α}, f^.open' = g^.open' → f = g :=
-begin
-  intros f g h', cases f with a, cases g with b,
-  assert h : a = b, assumption,
-  clear h',
-  subst h
-end
 
 instance : weak_order (topological_space α) :=
 { weak_order .
@@ -455,11 +511,7 @@ instance : topological_space ℕ := ⊤
 instance : topological_space ℤ := ⊤
 
 instance sierpinski_space : topological_space Prop :=
-{ topological_space .
-  open'       := take s, false ∈ s → true ∈ s,
-  open_univ   := take h, mem_univ true,
-  open_inter  := take s t, and.imp,
-  open_sUnion := take s hs, by simp; exact take ⟨t, ht, hts⟩, ⟨t, hs t hts ht, hts⟩ }
+topological_space.generate_from {{true}}
 
 instance {p : α → Prop} [t : topological_space α] : topological_space (subtype p) :=
 topological_space.induced subtype.val t
@@ -475,5 +527,39 @@ instance {β : α → Type v} [t₂ : Πa, topological_space (β a)] : topologic
 
 instance topological_space_Pi {β : α → Type v} [t₂ : Πa, topological_space (β a)] : topological_space (Πa, β a) :=
 ⨆a, topological_space.induced (λf, f a) (t₂ a)
+
+section
+open topological_space
+
+lemma generate_from_le {t : topological_space α} { g : set (set α) } (h : ∀s∈g, open' s) :
+  generate_from g ≤ t :=
+take s (hs : generate_open g s), generate_open.rec_on hs h
+  open_univ
+  (take s t _ _ hs ht, open_inter hs ht)
+  (take k _ hk, open_sUnion hk)
+
+lemma supr_eq_generate_from {ι : Sort w} { g : ι → topological_space α } :
+  supr g = generate_from (⋃i, {s | (g i).open' s}) :=
+le_antisymm
+  (supr_le $ take i s open_s,
+    generate_open.basic _ $ by simp; exact ⟨i, open_s⟩)
+  (generate_from_le $ take s,
+    begin
+      simp,
+      exact take ⟨i, open_s⟩, 
+        have g i ≤ supr g, from le_supr _ _, 
+        this s open_s
+    end)
+
+lemma sup_eq_generate_from { g₁ g₂ : topological_space α } :
+  g₁ ⊔ g₂ = generate_from {s | g₁.open' s ∨ g₂.open' s} :=
+le_antisymm
+  (sup_le (take s, generate_open.basic _ ∘ or.inl) (take s, generate_open.basic _ ∘ or.inr))
+  (generate_from_le $ take s hs,
+    have h₁ : g₁ ≤ sup g₁ g₂, from le_sup_left,
+    have h₂ : g₂ ≤ sup g₁ g₂, from le_sup_right,
+    or.rec_on hs (h₁ s) (h₂ s))
+
+end
 
 end constructions

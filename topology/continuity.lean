@@ -24,7 +24,7 @@ begin intro h, rw [h], trivial end
 lemma subtype.val_image {p : α → Prop} {s : set (subtype p)} :
   subtype.val ' s = {x | ∃h : p x, (⟨x, h⟩ : subtype p) ∈ s} :=
 set.ext $ take a,
-⟨ take ⟨⟨a', ha'⟩, in_s, (h_eq : a' = a)⟩, h_eq ▸ ⟨ha', in_s⟩,
+⟨take ⟨⟨a', ha'⟩, in_s, (h_eq : a' = a)⟩, h_eq ▸ ⟨ha', in_s⟩,
   take ⟨ha, in_s⟩, ⟨⟨a, ha⟩, in_s, rfl⟩⟩
 
 section 
@@ -41,12 +41,12 @@ take s h, hf _ (hg s h)
 
 lemma continuous_iff_towards {f : α → β} :
   continuous f ↔ (∀x, towards f (nhds x) (nhds (f x))) :=
-⟨ assume hf : continuous f, take x s, 
+⟨assume hf : continuous f, take x s, 
   show s ∈ (nhds (f x))^.sets → s ∈ (map f (nhds x))^.sets,
     by simp [nhds_sets];
       exact take ⟨t, t_open, t_subset, fx_in_t⟩,
-        ⟨vimage f t, hf t t_open, fx_in_t, vimage_mono t_subset⟩
-, assume hf : ∀x, towards f (nhds x) (nhds (f x)), 
+        ⟨vimage f t, hf t t_open, fx_in_t, vimage_mono t_subset⟩,
+  assume hf : ∀x, towards f (nhds x) (nhds (f x)), 
   take s, assume hs : open' s,
   have ∀a, f a ∈ s → s ∈ (nhds (f a))^.sets,
     by simp [nhds_sets]; exact take a ha, ⟨s, hs, subset.refl s, ha⟩,
@@ -64,12 +64,19 @@ variable {f : α → β}
 
 lemma continuous_iff_induced_le {t₁ : tspace α} {t₂ : tspace β} :
   cont t₁ t₂ f ↔ (induced f t₂ ≤ t₁) :=
-⟨ take hc s ⟨t, ht, s_eq⟩, s_eq^.symm ▸ hc t ht
-, take hle s h, hle _ ⟨_, h, rfl⟩⟩
+⟨take hc s ⟨t, ht, s_eq⟩, s_eq^.symm ▸ hc t ht,
+  take hle s h, hle _ ⟨_, h, rfl⟩⟩
 
 lemma continuous_eq_le_coinduced {t₁ : tspace α} {t₂ : tspace β} :
   cont t₁ t₂ f = (t₂ ≤ coinduced f t₁) :=
 rfl
+
+lemma continuous_generated_from {t : tspace α} {b : set (set β)}
+  (h : ∀s∈b, open' (vimage f s)) : cont t (generate_from b) f :=
+take s hs, generate_open.rec_on hs h 
+  open_univ
+  (take s t _ _, open_inter)
+  (take t _ h, by simp [h]; exact (open_Union $ take s, open_Union $ take hs, h s hs))
 
 lemma continuous_induced_dom {t : tspace β} : cont (induced f t) t f :=
 take s h, ⟨_, h, rfl⟩
@@ -135,60 +142,68 @@ continuous_Inf_dom $ take t ⟨h₁, h₂⟩ s hs, h₂ _ $ h s hs
 
 end constructions
 
-section induced
-open topological_space
-
-variables [t : topological_space β] {a : α} {f : α → β}
-
-lemma map_nhds_induced_eq (h : image f univ ∈ (nhds (f a))^.sets) :
-  map f (@nhds α (induced f t) a) = nhds (f a) :=
-le_antisymm
-  ((@continuous_iff_towards α β (induced f t) _ _)^.mp continuous_induced_dom a)
-  ( take s, assume hs : vimage f s ∈ (@nhds α (induced f t) a)^.sets,
-    let ⟨t', t_subset, open_t, a_in_t⟩ := mem_nhds_sets_iff^.mp h in
-    let ⟨s', s'_subset, ⟨s'', open_s'', s'_eq⟩, a_in_s'⟩ := (@mem_nhds_sets_iff _ (induced f t) _ _)^.mp hs in
-    by subst s'_eq; exact (mem_nhds_sets_iff^.mpr $
-      ⟨ t' ∩ s''
-      , take x ⟨h₁, h₂⟩, match x, h₂, t_subset h₁ with
-        | x, h₂, ⟨y, _, y_eq⟩ := begin subst y_eq, exact s'_subset h₂ end
-        end
-      , open_inter open_t open_s''
-      , ⟨a_in_t, a_in_s'⟩⟩))
-
-end induced
-
 section sierpinski
 variables [topological_space α]
 
 @[simp]
 lemma open_singleton_true : open' ({true} : set Prop) :=
-take h, show true ∈ {true}, by simp
+topological_space.generate_open.basic _ (by simp)
 
 lemma continuous_Prop {p : α → Prop} : continuous p ↔ open' {x | p x} :=
-⟨ assume h : continuous p,
+⟨assume h : continuous p,
   have open' (vimage p {true}),
     from h _ open_singleton_true,
-  by simp [vimage, eq_true] at this; assumption
-, assume h : open' {x | p x}, take s, assume hs : open' s,
-  classical.by_cases
-  ( suppose false ∈ s,
-    have s = univ,
-      from top_unique $ classical.cases (take _, hs this) (take _, this),
-    by simp [this])
-  ( assume nf : false ∉ s,
-    classical.by_cases
-    ( suppose true ∈ s,
-      have s = {true},
-        from set.ext $ classical.cases (by simp [this]) (by simp [nf]),
-      by simp [this, vimage, eq_true, h])
-    ( suppose true ∉ s, 
-      have s = {},
-        from set.ext $ classical.cases (by simp [this]) (by simp [nf]),
-      by simp [this]) ) ⟩
+  by simp [vimage, eq_true] at this; assumption,
+  assume h : open' {x | p x}, 
+  continuous_generated_from $ take s (hs : s ∈ {{true}}),
+    by simp at hs; simp [hs, vimage, eq_true, h]⟩
 
 end sierpinski
 
+section induced
+open topological_space
+variables [t : topological_space β] {f : α → β}
+
+lemma open_induced {s : set β} (h : open' s) : (induced f t).open' (vimage f s) :=
+⟨s, h, rfl⟩
+
+lemma nhds_induced_eq_vmap {a : α} : @nhds α (induced f t) a = vmap f (nhds (f a)) :=
+le_antisymm
+  (take s ⟨s', hs', (h_s : vimage f s' ⊆ s)⟩,
+    have ∃t':set β, open' t' ∧ t' ⊆ s' ∧ f a ∈ t',
+      by simp [mem_nhds_sets_iff] at hs'; assumption,
+    let ⟨t', ht', hsub, hin⟩ := this in
+    (@nhds α (induced f t) a).upwards_sets
+      begin
+        simp [mem_nhds_sets_iff],
+        exact ⟨vimage f t', open_induced ht', hin, vimage_mono hsub⟩
+      end
+      h_s)
+  (le_infi $ take s, le_infi $ take ⟨as, ⟨s', open_s', s_eq⟩⟩,
+    begin
+      simp [vmap, mem_nhds_sets_iff, s_eq],
+      exact ⟨s', subset.refl _, s', open_s', subset.refl _, by rw [s_eq] at as; assumption⟩
+    end)
+
+lemma map_nhds_induced_eq {a : α} (h : image f univ ∈ (nhds (f a))^.sets) :
+  map f (@nhds α (induced f t) a) = nhds (f a) :=
+le_antisymm
+  ((@continuous_iff_towards α β (induced f t) _ _)^.mp continuous_induced_dom a)
+  (take s, assume hs : vimage f s ∈ (@nhds α (induced f t) a)^.sets,
+    let ⟨t', t_subset, open_t, a_in_t⟩ := mem_nhds_sets_iff^.mp h in
+    let ⟨s', s'_subset, ⟨s'', open_s'', s'_eq⟩, a_in_s'⟩ := (@mem_nhds_sets_iff _ (induced f t) _ _)^.mp hs in
+    by subst s'_eq; exact (mem_nhds_sets_iff^.mpr $
+      ⟨t' ∩ s'',
+        take x ⟨h₁, h₂⟩, match x, h₂, t_subset h₁ with
+        | x, h₂, ⟨y, _, y_eq⟩ := begin subst y_eq, exact s'_subset h₂ end
+        end,
+        open_inter open_t open_s'',
+        ⟨a_in_t, a_in_s'⟩⟩))
+
+end induced
+
 section prod
+open topological_space
 variables [topological_space α] [topological_space β] [topological_space γ]
 
 lemma continuous_fst : continuous (@prod.fst α β) :=
@@ -200,6 +215,44 @@ continuous_sup_dom_right continuous_induced_dom
 lemma continuous_prod_mk {f : γ → α} {g : γ → β} 
   (hf : continuous f) (hg : continuous g) : continuous (λx, prod.mk (f x) (g x)) :=
 continuous_sup_rng (continuous_induced_rng hf) (continuous_induced_rng hg)
+
+lemma open_set_prod {s : set α} {t : set β} (hs : open' s) (ht: open' t) :
+  open' (set.prod s t) :=
+open_inter (continuous_fst s hs) (continuous_snd t ht)
+
+lemma prod_eq_generate_from [tα : topological_space α] [tβ : topological_space β] :
+  prod.topological_space =
+  generate_from {g | ∃(s:set α) (t:set β), open' s ∧ open' t ∧ g = set.prod s t} :=
+le_antisymm
+  (sup_le 
+    (take s ⟨t, ht, s_eq⟩,
+      have set.prod t univ = s, by simp [s_eq, vimage, set.prod],
+      this ▸ (generate_open.basic _ ⟨t, univ, ht, open_univ, rfl⟩))
+    (take s ⟨t, ht, s_eq⟩,
+      have set.prod univ t = s, by simp [s_eq, vimage, set.prod],
+      this ▸ (generate_open.basic _ ⟨univ, t, open_univ, ht, rfl⟩)))
+  (generate_from_le $ take g ⟨s, t, hs, ht, g_eq⟩, g_eq.symm ▸ open_set_prod hs ht)
+
+lemma nhds_prod_eq {a : α} {b : β} : nhds (a, b) = filter.prod (nhds a) (nhds b) :=
+by rw [prod_eq_generate_from, nhds_generate_from];
+  exact le_antisymm 
+    (le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht, 
+      begin
+        simp [mem_nhds_sets_iff] at hs, simp [mem_nhds_sets_iff] at ht,
+        revert hs ht,
+        exact (take ⟨s', hs', hs_sub, as'⟩ ⟨t', ht', ht_sub, at'⟩,
+          infi_le_of_le (set.prod s' t') $
+          infi_le_of_le ⟨⟨as', at'⟩, s', t', hs', ht', rfl⟩ $
+          principal_mono.mpr $ set.prod_mono hs_sub ht_sub)
+      end)
+    (le_infi $ take s, le_infi $ take ⟨hab, s', t', hs', ht', s_eq⟩, 
+      begin
+        revert hab,
+        simp [s_eq],
+        exact take ⟨ha, hb⟩, @prod_mem_prod α β s' t' (nhds a) (nhds b)
+          (mem_nhds_sets_iff.mpr ⟨s', subset.refl s', hs', ha⟩)
+          (mem_nhds_sets_iff.mpr ⟨t', subset.refl t', ht', hb⟩)
+      end)
 
 end prod
 

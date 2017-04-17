@@ -107,7 +107,76 @@ set.ext $ take ⟨a, b⟩, by simp [mem_image_eq, set.prod]; exact
 ⟨ take ⟨⟨b', a'⟩, h_a, h_b, h⟩, by rw [h_a, h_b] at h; assumption,
   take ⟨ha, hb⟩, ⟨⟨b, a⟩, rfl, rfl, begin simp; exact ⟨ha, hb⟩ end⟩⟩
 
+lemma prod_image_image_eq {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x}
+  {s₁ : set α₁} {s₂ : set α₂} {m₁ : α₁ → β₁} {m₂ : α₂ → β₂} :
+  set.prod (image m₁ s₁) (image m₂ s₂) = image (λp:α₁×α₂, (m₁ p.1, m₂ p.2)) (set.prod s₁ s₂) :=
+set.ext $ take ⟨b₁, b₂⟩,
+  ⟨take ⟨⟨a₁, ha₁, (eq₁ : m₁ a₁ = b₁)⟩, ⟨a₂, ha₂, (eq₂ : m₂ a₂ = b₂)⟩⟩,
+    mem_image
+      (show (a₁, a₂) ∈ set.prod s₁ s₂, from ⟨ha₁, ha₂⟩)
+      (by simp [eq₁, eq₂]),
+    take ⟨⟨a₁, a₂⟩, ⟨ha₁, ha₂⟩, eq⟩, eq ▸ ⟨mem_image_of_mem m₁ ha₁, mem_image_of_mem m₂ ha₂⟩⟩
+
+lemma monotone_inter [weak_order β] {f g : β → set α}
+  (hf : monotone f) (hg : monotone g) : monotone (λx, (f x) ∩ (g x)) :=
+take a b h x ⟨h₁, h₂⟩, ⟨hf h h₁, hg h h₂⟩
+
+@[simp]
+lemma vimage_set_of_eq {p : α → Prop} {f : β → α} :
+  vimage f {a | p a} = {a | p (f a)} :=
+rfl
+
+@[simp] -- copied from parser
+lemma prod.mk.eta : ∀{p : α × β}, (p.1, p.2) = p
+| (a, b) := rfl
+
+@[simp]
+lemma prod_mk_mem_set_prod_eq {a : α} {b : β} {s : set α} {t : set β} :
+  (a, b) ∈ set.prod s t = (a ∈ s ∧ b ∈ t) :=
+rfl
+
+def prod.swap : (α×β) → (β×α) := λp, (p.2, p.1)
+
+@[simp]
+lemma prod.swap_swap : ∀x:α×β, prod.swap (prod.swap x) = x
+| ⟨a, b⟩ := rfl
+
+@[simp]
+lemma prod.fst_swap {p : α×β} : (prod.swap p).1 = p.2 := rfl
+
+@[simp]
+lemma prod.snd_swap {p : α×β} : (prod.swap p).2 = p.1 := rfl
+
+@[simp]
+lemma prod.swap_prod_mk {a : α} {b : β} : prod.swap (a, b) = (b, a) := rfl
+
+@[simp]
+lemma set_of_mem_eq {s : set α} : {x | x ∈ s} = s :=
+rfl
+
+lemma mem_image_iff_of_inverse (f : α → β) (g : β → α) {b : β} {s : set α}
+  (h₁ : ∀a, g (f a) = a ) (h₂ : ∀b, f (g b) = b ) : b ∈ f ' s ↔ g b ∈ s :=
+⟨take ⟨a, ha, fa_eq⟩, fa_eq ▸ (h₁ a)^.symm ▸ ha,
+  take h, ⟨g b, h, h₂ b⟩⟩
+
+lemma image_eq_vimage_of_inverse (f : α → β) (g : β → α)
+  (h₁ : ∀a, g (f a) = a ) (h₂ : ∀b, f (g b) = b ) : image f = vimage g :=
+funext $ take s, set.ext $ take b, mem_image_iff_of_inverse f g h₁ h₂
+
+lemma image_swap_eq_vimage_swap : image (@prod.swap α β) = vimage prod.swap :=
+image_eq_vimage_of_inverse (@prod.swap α β) (@prod.swap β α)
+  begin simp; intros; trivial end
+  begin simp; intros; trivial end
+
+lemma monotone_set_of [weak_order α] {p : α → β → Prop}
+  (hp : ∀b, monotone (λa, p a b)) : monotone (λa, {b | p a b}) :=
+take a a' h b, hp b h
+
 end set
+
+@[simp] -- should be handled by implies_true_iff
+lemma implies_implies_true_iff {α : Sort u} {β : Sort v} : (α → β → true) ↔ true :=
+⟨take _, trivial, take _ _ _ , trivial⟩
 
 section order
 variables {α : Type u} (r : α → α → Prop)
@@ -199,6 +268,17 @@ def map (m : α → β) (f : filter α) : filter β :=
   upwards_sets  := take s t hs st, f^.upwards_sets hs (take x h, st h),
   directed_sets := take s hs t ht, ⟨s ∩ t, inter_mem_sets hs ht,
     inter_subset_left _ _,  inter_subset_right _ _⟩ }
+
+def vmap (m : α → β) (f : filter β) : filter α :=
+{ filter .
+  sets          := { s | ∃t∈f.sets, vimage m t ⊆ s },
+  inhabited     := ⟨univ, univ, univ_mem_sets, by simp⟩,
+  upwards_sets  := take a b ⟨a', ha', ma'a⟩ ab, ⟨a', ha', subset.trans ma'a ab⟩,
+  directed_sets := take a ⟨a', ha₁, ha₂⟩ b ⟨b', hb₁, hb₂⟩,
+    ⟨vimage m (a' ∩ b'),
+      ⟨a' ∩ b', inter_mem_sets ha₁ hb₁, subset.refl _⟩,
+      subset.trans (vimage_mono $ inter_subset_left _ _) ha₂,
+      subset.trans (vimage_mono $ inter_subset_right _ _) hb₂⟩ }
 
 protected def sup (f g : filter α) : filter α :=
 { filter .
@@ -329,6 +409,16 @@ def at_bot [weak_order α] : filter α := ⨅ a, principal {b | b ≤ a}
 lemma mem_bot_sets {s : set α} : s ∈ (⊥ : filter α)^.sets :=
 take x, false.elim
 
+lemma empty_in_sets_eq_bot {f : filter α} : ∅ ∈ f^.sets ↔ f = ⊥ :=
+⟨take h, bot_unique $ take s _, f.upwards_sets h (empty_subset s),
+  suppose f = ⊥, this.symm ▸ mem_bot_sets⟩
+
+lemma inhabited_of_mem_sets {f : filter α} {s : set α} (hf : f ≠ ⊥) (hs : s ∈ f^.sets) :
+  ∃x, x ∈ s :=
+have ∅ ∉ f^.sets, from take h, hf $ empty_in_sets_eq_bot.mp h,
+have s ≠ ∅, from take h, this (h ▸ hs),
+exists_mem_of_ne_empty this
+
 @[simp]
 lemma mem_sup_sets {f g : filter α} {s : set α} :
   s ∈ (f ⊔ g)^.sets = (s ∈ f^.sets ∧ s ∈ g^.sets) :=
@@ -358,7 +448,7 @@ lemma infi_sets_eq' {f : β → filter α} {s : set β} (h : directed_on (λx y,
 let ⟨i, hi⟩ := ne in
 calc (⨅ i ∈ s, f i)^.sets  = (⨅ t : {t // t ∈ s}, (f t^.val))^.sets : by simp [infi_subtype]; refl
   ... = (⨆ t : {t // t ∈ s}, (f t^.val)^.sets) : infi_sets_eq
-    (take ⟨x, hx⟩ ⟨y, hy⟩, match h x hx y hy with ⟨z, h₁, h₂, h₃⟩ := ⟨⟨z, h₁⟩, h₂, h₃⟩ end )
+    (take ⟨x, hx⟩ ⟨y, hy⟩, match h x hx y hy with ⟨z, h₁, h₂, h₃⟩ := ⟨⟨z, h₁⟩, h₂, h₃⟩ end)
     ⟨⟨i, hi⟩⟩
   ... = (⨆ t ∈ {t | t ∈ s}, (f t)^.sets) : by simp [supr_subtype]; refl
 
@@ -498,6 +588,27 @@ take a b h, map_mono h
 lemma map_infi_le {f : ι → filter α} {m : α → β} :
   map m (infi f) ≤ (⨅ i, map m (f i)) :=
 le_infi $ take i, map_mono $ infi_le _ _
+
+lemma map_infi_eq {f : ι → filter α} {m : α → β} (hf : directed (≤) f) (hι : nonempty ι) :
+  map m (infi f) = (⨅ i, map m (f i)) :=
+le_antisymm
+  map_infi_le
+  (take s (hs : vimage m s ∈ (infi f).sets),
+    have ∃i, vimage m s ∈ (f i).sets,
+      by simp [infi_sets_eq hf hι] at hs; assumption,
+    let ⟨i, hi⟩ := this in
+    have (⨅ i, map m (f i)) ≤ principal s,
+      from infi_le_of_le i $ by simp; assumption,
+    by simp at this; assumption)
+
+lemma map_binfi_eq {ι : Type w} {f : ι → filter α} {m : α → β} {s : set ι}
+  (h : directed_on (λx y, f x ≤ f y) s) (ne : ∃i, i ∈ s) : map m (⨅i∈s, f i) = (⨅i∈s, map m (f i)) :=
+let ⟨i, hi⟩ := ne in
+calc map m (⨅i∈s, f i) = map m (⨅i:{i // i ∈ s}, f i.val) : by simp [infi_subtype]
+  ... = (⨅i:{i // i ∈ s}, map m (f i.val)) : map_infi_eq
+    (take ⟨x, hx⟩ ⟨y, hy⟩, match h x hx y hy with ⟨z, h₁, h₂, h₃⟩ := ⟨⟨z, h₁⟩, h₂, h₃⟩ end)
+    ⟨⟨i, hi⟩⟩
+  ... = (⨅i∈s, map m (f i)) : by simp [infi_subtype]
 
 /- bind equations -/
 
@@ -750,6 +861,19 @@ end
 
 end lift
 
+/- vmap equations -/
+
+lemma mem_vmap_of_mem {f : filter β} {m : α → β} {s : set β} (h : s ∈ f.sets) :
+  vimage m s ∈ (vmap m f).sets :=
+⟨s, h, subset.refl _⟩
+
+lemma vmap_mono {f g : filter β} {m : α → β} (h : f ≤ g) : vmap m f ≤ vmap m g :=
+take s ⟨t, ht, h_sub⟩, ⟨t, h ht, h_sub⟩
+
+lemma vmap_eq_lift' {f : filter β} {m : α → β} :
+  vmap m f = f.lift' (vimage m) :=
+filter_eq $ set.ext $ by simp [mem_lift'_iff, monotone_vimage, vmap]
+
 /- product filter -/
 
 /- The product filter cannot be defined using the monad structure on filters. For example:
@@ -840,6 +964,23 @@ begin
   exact hg₁,
   exact (monotone_lift' monotone_const $ monotone_lam $
     take x, set.monotone_prod monotone_id monotone_const)
+end
+
+lemma prod_map_map_eq {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x}
+  {f₁ : filter α₁} {f₂ : filter α₂} {m₁ : α₁ → β₁} {m₂ : α₂ → β₂} :
+  filter.prod (map m₁ f₁) (map m₂ f₂) = map (λp:α₁×α₂, (m₁ p.1, m₂ p.2)) (filter.prod f₁ f₂) :=
+begin
+  simp [filter.prod],
+  rw [map_lift_eq], tactic.swap, exact (monotone_lift' monotone_const $
+    monotone_lam $ take t, set.monotone_prod monotone_id monotone_const),
+  rw [map_lift_eq2], tactic.swap, exact (monotone_lift' monotone_const $
+    monotone_lam $ take t, set.monotone_prod monotone_id monotone_const),
+  apply congr_arg, apply funext, intro t,
+  dsimp,
+  rw [map_lift'_eq], tactic.swap, exact set.monotone_prod monotone_const monotone_id,
+  rw [map_lift'_eq2], tactic.swap, exact set.monotone_prod monotone_const monotone_id,
+  apply congr_arg, apply funext, intro t,
+  exact set.prod_image_image_eq
 end
 
 end prod

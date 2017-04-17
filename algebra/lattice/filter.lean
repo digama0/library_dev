@@ -54,13 +54,14 @@ end lattice
 
 instance : monad set :=
 { monad .
-  pure := λα a, {a},
-  bind := λα β s f, ⋃i∈s, f i,
-  map  := λα β, set.image,
-  pure_bind := take α β x f, by simp,
+  pure       := λ(α : Type u) a, {a},
+  bind       := λ(α β : Type u) s f, ⋃i∈s, f i,
+  map        := λ(α β : Type u), set.image,
+  pure_bind  := take α β x f, by simp,
   bind_assoc := take α β γ s f g, set.ext $ take a,
-    by simp; exact ⟨take ⟨b, ag, a, as, bf⟩, ⟨a, as, b, bf, ag⟩, take ⟨a, as, b, bf, ag⟩, ⟨b, ag, a, as, bf⟩⟩,
-  id_map := take α, functor.id_map,
+    by simp; exact ⟨take ⟨b, ag, a, as, bf⟩, ⟨a, as, b, bf, ag⟩,
+      take ⟨a, as, b, bf, ag⟩, ⟨b, ag, a, as, bf⟩⟩,
+  id_map     := take α, functor.id_map,
   bind_pure_comp_eq_map := take α β f s, set.ext $ by simp [set.image, eq_comm] }
 
 namespace set
@@ -306,9 +307,9 @@ rfl
 
 instance monad_filter : monad filter :=
 { monad .
-  bind       := λα β f m, join (map m f),
-  pure       := λα x, principal {x},
-  map        := λα β, filter.map,
+  bind       := λ(α β : Type u) f m, join (map m f),
+  pure       := λ(α : Type u) x, principal {x},
+  map        := λ(α β : Type u), filter.map,
   id_map     := take α f, filter_eq $ rfl,
   pure_bind  := take α β a f, by simp [Sup_image],
   bind_assoc := take α β γ f m₁ m₂, filter_eq $ rfl,

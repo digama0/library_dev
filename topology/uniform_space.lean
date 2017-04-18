@@ -5,7 +5,7 @@ Authors: Johannes Hölzl
 
 Theory of uniform spaces.
 -/
-import algebra.lattice.filter .topological_space
+import algebra.lattice.filter .topological_space .continuity
 open set lattice filter
 
 universes u v w x
@@ -159,7 +159,7 @@ lemma mem_nhds_right {y : α} {s : set (α×α)} (h : s ∈ (uniformity.sets : s
   {x : α | (x, y) ∈ s} ∈ (nhds y)^.sets :=
 mem_nhds_left (symm_le_uniformity h)
 
-lemma lift_nhds_eq {x : α} {g : set α → filter β} (hg : monotone g) :
+lemma lift_nhds_left {x : α} {g : set α → filter β} (hg : monotone g) :
   (nhds x)^.lift g = uniformity^.lift (λs:set (α×α), g {y | (x, y) ∈ s}) :=
 eq.trans
   begin
@@ -168,22 +168,55 @@ eq.trans
   end
   (congr_arg _ $ funext $ take s, filter.lift_principal hg)
 
-lemma nhds_nhds_le_uniformity_prod {a b : α} : filter.prod (nhds a) (nhds b) ≤
-  uniformity^.lift (λs:set (α×α), uniformity^.lift' (λt:set(α×α),
+lemma lift_nhds_right {x : α} {g : set α → filter β} (hg : monotone g) :
+  (nhds x)^.lift g = uniformity^.lift (λs:set (α×α), g {y | (y, x) ∈ s}) :=
+calc (nhds x)^.lift g = uniformity^.lift (λs:set (α×α), g {y | (x, y) ∈ s}) : lift_nhds_left hg
+  ... = ((@prod.swap α α) <$> uniformity)^.lift (λs:set (α×α), g {y | (x, y) ∈ s}) : by rw [-uniformity_eq_symm]
+  ... = uniformity^.lift (λs:set (α×α), g {y | (x, y) ∈ image prod.swap s}) :
+    map_lift_eq2 $ monotone_comp monotone_vimage hg
+  ... = _ : by simp [image_swap_eq_vimage_swap]
+
+lemma nhds_nhds_eq_uniformity_uniformity_prod {a b : α} :
+  filter.prod (nhds a) (nhds b) =
+  uniformity^.lift (λs:set (α×α), uniformity^.lift' (λt:set (α×α),
     set.prod {y : α | (y, a) ∈ s} {y : α | (b, y) ∈ t})) :=
+show (nhds a)^.lift (λs:set α, (nhds b)^.lift (λt:set α, principal (set.prod s t))) = _,
 begin
-  rw [nhds_eq],
-  rw [nhds_eq],
-  rw [prod_lift'_lift'],
-  apply uniformity_lift_le_swap _,
-  apply lift_mono (le_refl uniformity), intro s,
-  apply lift'_mono (le_refl uniformity), intro t,
-  exact le_refl _,
+  rw [lift_nhds_right],
+  apply congr_arg, apply funext, intro s,
+  rw [lift_nhds_left],
+  refl,
+  exact monotone_comp (monotone_prod monotone_const monotone_id) monotone_principal,
   exact (monotone_lift' monotone_const $ monotone_lam $
-    take t, monotone_prod monotone_vimage monotone_const),
-  exact monotone_vimage,
-  exact monotone_vimage
+    take x, monotone_prod monotone_id monotone_const)
 end
+
+lemma nhds_eq_uniformity_prod {a b : α} :
+  nhds (a, b) =
+  uniformity^.lift' (λs:set (α×α), set.prod {y : α | (y, a) ∈ s} {y : α | (b, y) ∈ s}) :=
+begin
+  rw [nhds_prod_eq, nhds_nhds_eq_uniformity_uniformity_prod, lift_lift'_same_eq_lift'],
+  { intro s, exact monotone_prod monotone_const monotone_vimage },
+  { intro t, exact monotone_prod monotone_vimage monotone_const }
+end
+
+lemma closure_eq_inter_uniformity {t : set (α×α)} :
+  closure t = (⋂ d∈(@uniformity α _).sets, comp_rel d (comp_rel t d)) :=
+have ∀a b,
+  uniformity.lift' (λ (s : set (α × α)), set.prod {y : α | (y, a) ∈ s} {y : α | (b, y) ∈ s}) ⊓ principal t ≠ ⊥ ↔
+  (∀(i : set (α × α)), i ∈ (@uniformity α _).sets → (a, b) ∈ comp_rel i (comp_rel t i)),
+begin
+  intros a b,
+  rw [lift'_inf_principal_eq, lift'_neq_bot_iff],
+  apply forall_congr, intro s,
+  apply forall_congr, intro hs,
+end,
+begin
+  apply set.ext,
+  intro x, cases x with a b,
+  simp [closure_eq_nhds, nhds_eq_uniformity_prod],
+end
+
 
 /- uniform continuity -/
 
@@ -201,9 +234,9 @@ lemma cauchy_downwards {f g : filter α} (h_c : cauchy f) (h_le : g ≤ f) : cau
 le_trans (filter.prod_mono h_le h_le) h_c
 
 lemma cauchy_nhds {a : α} : cauchy (nhds a) :=
-calc filter.prod (nhds a) (nhds a) ≤
+calc filter.prod (nhds a) (nhds a) =
   uniformity^.lift (λs:set (α×α), uniformity^.lift' (λt:set(α×α),
-    set.prod {y : α | (y, a) ∈ s} {y : α | (a, y) ∈ t})) : nhds_nhds_le_uniformity_prod
+    set.prod {y : α | (y, a) ∈ s} {y : α | (a, y) ∈ t})) : nhds_nhds_eq_uniformity_uniformity_prod
   ... ≤ uniformity^.lift (λs:set (α×α), uniformity^.lift' (comp_rel s)) :
     lift_mono' $ take s hs, lift'_mono' $ take t ht, take ⟨b, c⟩ ⟨ha, hb⟩, ⟨a, ha, hb⟩
   ... ≤ uniformity : trans_le_uniformity'

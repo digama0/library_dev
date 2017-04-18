@@ -548,6 +548,9 @@ rfl
 lemma principal_empty : principal (∅ : set α) = bot :=
 rfl
 
+lemma principal_eq_bot_iff {s : set α} : principal s = ⊥ ↔ s = ∅ :=
+⟨take h, principal_eq_iff_eq.mp $ by simp [principal_empty, h], take h, by simph [principal_empty]⟩
+
 /- map equations -/
 
 @[simp]
@@ -649,7 +652,7 @@ show s ∈ (principal {a})^.sets ↔ a ∈ s,
   by simp
 
 lemma infi_neq_bot_of_directed {f : ι → filter α}
-  (hd : directed (≤) f) (hb : ∀i, f i ≠ ⊥) (hn : nonempty α) : (infi f) ≠ ⊥ :=
+  (hn : nonempty α) (hd : directed (≤) f) (hb : ∀i, f i ≠ ⊥): (infi f) ≠ ⊥ :=
 let ⟨x⟩ := hn in
 take h, have he: ∅ ∈ (infi f)^.sets, from h.symm ▸ mem_bot_sets,
 classical.by_cases
@@ -666,6 +669,11 @@ classical.by_cases
       exact (le_infi $ take i, false.elim $ this ⟨i⟩)
     end,
     this $ mem_univ x)
+
+lemma infi_neq_bot_iff_of_directed {f : ι → filter α}
+  (hn : nonempty α) (hd : directed (≤) f) : (infi f) ≠ ⊥ ↔ (∀i, f i ≠ ⊥) :=
+⟨take neq_bot i eq_bot, neq_bot $ bot_unique $ infi_le_of_le i $ eq_bot ▸ le_refl _,
+  infi_neq_bot_of_directed hn hd⟩
 
 section lift
 
@@ -758,15 +766,15 @@ lemma monotone_lift [weak_order γ] {f : γ → filter α} {g : γ → set α �
   (hf : monotone f) (hg : monotone g) : monotone (λc, (f c)^.lift (g c)) :=
 take a b h, lift_mono (hf h) (hg h)
 
-lemma lift_neq_bot (hn : nonempty β) (hg : ∀s∈f.sets, g s ≠ ⊥) (hm : monotone g) :
-  f^.lift g ≠ ⊥ :=
-have (⨅s : { s // s ∈ f^.sets}, g s.val) = f^.lift g,
-  from infi_subtype,
-this ▸ infi_neq_bot_of_directed
-  (take ⟨a, ha⟩ ⟨b, hb⟩, ⟨⟨a ∩ b, inter_mem_sets ha hb⟩, 
-    hm $ inter_subset_left _ _, hm $ inter_subset_right _ _⟩)
-  (take ⟨a, ha⟩, hg a ha)
-  hn
+lemma lift_neq_bot_iff (hn : nonempty β) (hm : monotone g) :
+  (f^.lift g ≠ ⊥) ↔ (∀s∈f.sets, g s ≠ ⊥) :=
+calc f^.lift g ≠ ⊥ ↔ (⨅s : { s // s ∈ f^.sets}, g s.val) ≠ ⊥ : by simp [filter.lift, infi_subtype]
+  ... ↔ (∀s:{ s // s ∈ f^.sets}, g s.val ≠ ⊥) :
+    infi_neq_bot_iff_of_directed
+      hn
+      (take ⟨a, ha⟩ ⟨b, hb⟩, ⟨⟨a ∩ b, inter_mem_sets ha hb⟩, 
+        hm $ inter_subset_left _ _, hm $ inter_subset_right _ _⟩)
+  ... ↔ (∀s∈f.sets, g s ≠ ⊥) : ⟨take h s hs, h ⟨s, hs⟩, take h ⟨s, hs⟩, h s hs⟩
 
 end
 
@@ -851,11 +859,11 @@ le_antisymm
       infi_le_of_le t $ infi_le_of_le ht $ by simp; exact inter_subset_right _ _)
     (infi_le_of_le univ $ infi_le_of_le univ_mem_sets $ by simp; exact inter_subset_left _ _))
 
-lemma lift'_neq_bot (hn : nonempty β) (hh : monotone h) (hb : ∀t∈f^.sets, h t ≠ ∅) :
-  f^.lift' h ≠ ⊥ :=
-lift_neq_bot hn
-  (take s hs h, hb s hs $ principal_eq_iff_eq.mp h)
-  (monotone_comp hh monotone_principal)
+lemma lift'_neq_bot_iff (hn : nonempty β) (hh : monotone h) :
+  (f^.lift' h ≠ ⊥) ↔ (∀s∈f.sets, h s ≠ ∅) :=
+calc (f^.lift' h ≠ ⊥) ↔ (∀s∈f.sets, principal (h s) ≠ ⊥) :
+    lift_neq_bot_iff hn (monotone_comp hh monotone_principal)
+  ... ↔ (∀s∈f.sets, h s ≠ ∅) : by simp [principal_eq_bot_iff]
 
 end
 

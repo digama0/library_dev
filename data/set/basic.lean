@@ -41,6 +41,11 @@ lemma prod.forall {α : Type u} {β : Type v} {p : α × β → Prop} :
 ⟨take h a b, h (a, b), take h ⟨a, b⟩, h a b⟩
 
 @[simp]
+lemma prod.exists {α : Type u} {β : Type v} {p : α × β → Prop} :
+  (∃x, p x) ↔ (∃a b, p (a, b)) :=
+⟨take ⟨⟨a, b⟩, h⟩, ⟨a, b, h⟩, take ⟨a, b, h⟩, ⟨⟨a, b⟩, h⟩⟩
+
+@[simp]
 lemma set_of_subset_set_of {p q : α → Prop} : {a | p a} ⊆ {a | q a} = (∀a, p a → q a) :=
 rfl
 

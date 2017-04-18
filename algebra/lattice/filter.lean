@@ -69,6 +69,9 @@ namespace set
 section
 variables {α β : Type u}
 
+theorem ne_empty_iff_exists_mem {s : set α} : s ≠ ∅ ↔ ∃ x, x ∈ s :=
+⟨exists_mem_of_ne_empty, take ⟨x, (hx : x ∈ s)⟩ h, by rw [h] at hx; assumption⟩
+
 lemma fmap_eq_image {f : α → β} {s : set α} : f <$> s = f ' s :=
 rfl
 
@@ -97,6 +100,14 @@ lemma prod_mono {s₁ s₂ : set α} {t₁ t₂ : set β} (hs : s₁ ⊆ s₂) (
   set.prod s₁ t₁ ⊆ set.prod s₂ t₂ :=
 take x ⟨h₁, h₂⟩, ⟨hs h₁, ht h₂⟩
 
+lemma prod_inter_prod {s₁ s₂ : set α} {t₁ t₂ : set β} :
+  set.prod s₁ t₁ ∩ set.prod s₂ t₂ = set.prod (s₁ ∩ s₂) (t₁ ∩ t₂) :=
+subset.antisymm
+  (take ⟨a, b⟩ ⟨⟨ha₁, hb₁⟩, ⟨ha₂, hb₂⟩⟩, ⟨⟨ha₁, ha₂⟩, ⟨hb₁, hb₂⟩⟩)
+  (subset_inter
+    (prod_mono (inter_subset_left _ _) (inter_subset_left _ _))
+    (prod_mono (inter_subset_right _ _) (inter_subset_right _ _)))
+
 lemma monotone_prod [weak_order α] {f : α → set β} {g : α → set γ}
   (hf : monotone f) (hg : monotone g) : monotone (λx, set.prod (f x) (g x)) :=
 take a b h, prod_mono (hf h) (hg h)
@@ -104,8 +115,8 @@ take a b h, prod_mono (hf h) (hg h)
 lemma image_swap_prod {s : set α} {t : set β} :
   image (λp:β×α, (p.2, p.1)) (set.prod t s) = set.prod s t :=
 set.ext $ take ⟨a, b⟩, by simp [mem_image_eq, set.prod]; exact
-⟨ take ⟨⟨b', a'⟩, h_a, h_b, h⟩, by rw [h_a, h_b] at h; assumption,
-  take ⟨ha, hb⟩, ⟨⟨b, a⟩, rfl, rfl, begin simp; exact ⟨ha, hb⟩ end⟩⟩
+⟨ take ⟨b', a', h_a, h_b, h⟩, by rw [h_a, h_b] at h; assumption,
+  take ⟨ha, hb⟩, ⟨b, a, rfl, rfl, ⟨ha, hb⟩⟩⟩
 
 lemma prod_image_image_eq {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x}
   {s₁ : set α₁} {s₂ : set α₂} {m₁ : α₁ → β₁} {m₂ : α₂ → β₂} :
@@ -116,6 +127,15 @@ set.ext $ take ⟨b₁, b₂⟩,
       (show (a₁, a₂) ∈ set.prod s₁ s₂, from ⟨ha₁, ha₂⟩)
       (by simp [eq₁, eq₂]),
     take ⟨⟨a₁, a₂⟩, ⟨ha₁, ha₂⟩, eq⟩, eq ▸ ⟨mem_image_of_mem m₁ ha₁, mem_image_of_mem m₂ ha₂⟩⟩
+
+lemma prod_neq_empty_iff {s : set α} {t : set β} :
+  set.prod s t ≠ ∅ ↔ (s ≠ ∅ ∧ t ≠ ∅) :=
+begin
+  rw [ne_empty_iff_exists_mem, ne_empty_iff_exists_mem, ne_empty_iff_exists_mem,
+    prod.exists],
+  exact ⟨take ⟨a, b, ha, hb⟩, ⟨⟨a, ha⟩, ⟨b, hb⟩⟩,
+    take ⟨⟨a, ha⟩, ⟨b, hb⟩⟩, ⟨a, b, ha, hb⟩⟩
+end
 
 lemma monotone_inter [weak_order β] {f g : β → set α}
   (hf : monotone f) (hg : monotone g) : monotone (λx, (f x) ∩ (g x)) :=
@@ -418,6 +438,16 @@ lemma inhabited_of_mem_sets {f : filter α} {s : set α} (hf : f ≠ ⊥) (hs : 
 have ∅ ∉ f^.sets, from take h, hf $ empty_in_sets_eq_bot.mp h,
 have s ≠ ∅, from take h, this (h ▸ hs),
 exists_mem_of_ne_empty this
+
+lemma filter_eq_bot_of_not_nonempty {f : filter α} (ne : ¬ nonempty α) : f = ⊥ :=
+empty_in_sets_eq_bot.mp $ f.upwards_sets univ_mem_sets $
+  take x, false.elim (ne ⟨x⟩)
+
+lemma forall_sets_neq_empty_iff_neq_bot {f : filter α} :
+  (∀ (s : set α), s ∈ f.sets → s ≠ ∅) ↔ f ≠ ⊥ :=
+by
+  simp [(@empty_in_sets_eq_bot α f).symm];
+  exact ⟨take h hs, h _ hs rfl, take h s hs eq, h $ eq ▸ hs⟩
 
 @[simp]
 lemma mem_sup_sets {f g : filter α} {s : set α} :
@@ -766,15 +796,21 @@ lemma monotone_lift [weak_order γ] {f : γ → filter α} {g : γ → set α �
   (hf : monotone f) (hg : monotone g) : monotone (λc, (f c)^.lift (g c)) :=
 take a b h, lift_mono (hf h) (hg h)
 
-lemma lift_neq_bot_iff (hn : nonempty β) (hm : monotone g) :
-  (f^.lift g ≠ ⊥) ↔ (∀s∈f.sets, g s ≠ ⊥) :=
-calc f^.lift g ≠ ⊥ ↔ (⨅s : { s // s ∈ f^.sets}, g s.val) ≠ ⊥ : by simp [filter.lift, infi_subtype]
-  ... ↔ (∀s:{ s // s ∈ f^.sets}, g s.val ≠ ⊥) :
-    infi_neq_bot_iff_of_directed
-      hn
-      (take ⟨a, ha⟩ ⟨b, hb⟩, ⟨⟨a ∩ b, inter_mem_sets ha hb⟩, 
-        hm $ inter_subset_left _ _, hm $ inter_subset_right _ _⟩)
-  ... ↔ (∀s∈f.sets, g s ≠ ⊥) : ⟨take h s hs, h ⟨s, hs⟩, take h ⟨s, hs⟩, h s hs⟩
+lemma lift_neq_bot_iff (hm : monotone g) : (f^.lift g ≠ ⊥) ↔ (∀s∈f.sets, g s ≠ ⊥) :=
+classical.by_cases
+  (assume hn : nonempty β,
+    calc f^.lift g ≠ ⊥ ↔ (⨅s : { s // s ∈ f^.sets}, g s.val) ≠ ⊥ : by simp [filter.lift, infi_subtype]
+      ... ↔ (∀s:{ s // s ∈ f^.sets}, g s.val ≠ ⊥) :
+        infi_neq_bot_iff_of_directed hn
+          (take ⟨a, ha⟩ ⟨b, hb⟩, ⟨⟨a ∩ b, inter_mem_sets ha hb⟩, 
+            hm $ inter_subset_left _ _, hm $ inter_subset_right _ _⟩)
+      ... ↔ (∀s∈f.sets, g s ≠ ⊥) : ⟨take h s hs, h ⟨s, hs⟩, take h ⟨s, hs⟩, h s hs⟩)
+  (assume hn : ¬ nonempty β,
+    have h₁ : f.lift g = ⊥, from filter_eq_bot_of_not_nonempty hn,
+    have h₂ : ∀s, g s = ⊥, from take s, filter_eq_bot_of_not_nonempty hn,
+    calc (f.lift g ≠ ⊥) ↔ false : by simp [h₁]
+      ... ↔ (∀s∈f.sets, false) : ⟨false.elim, take h, h univ univ_mem_sets⟩
+      ... ↔ (∀s∈f.sets, g s ≠ ⊥) : by simp [h₂])
 
 end
 
@@ -859,10 +895,9 @@ le_antisymm
       infi_le_of_le t $ infi_le_of_le ht $ by simp; exact inter_subset_right _ _)
     (infi_le_of_le univ $ infi_le_of_le univ_mem_sets $ by simp; exact inter_subset_left _ _))
 
-lemma lift'_neq_bot_iff (hn : nonempty β) (hh : monotone h) :
-  (f^.lift' h ≠ ⊥) ↔ (∀s∈f.sets, h s ≠ ∅) :=
+lemma lift'_neq_bot_iff (hh : monotone h) : (f^.lift' h ≠ ⊥) ↔ (∀s∈f.sets, h s ≠ ∅) :=
 calc (f^.lift' h ≠ ⊥) ↔ (∀s∈f.sets, principal (h s) ≠ ⊥) :
-    lift_neq_bot_iff hn (monotone_comp hh monotone_principal)
+    lift_neq_bot_iff (monotone_comp hh monotone_principal)
   ... ↔ (∀s∈f.sets, h s ≠ ∅) : by simp [principal_eq_bot_iff]
 
 end
@@ -989,6 +1024,53 @@ begin
   rw [map_lift'_eq2], tactic.swap, exact set.monotone_prod monotone_const monotone_id,
   apply congr_arg, apply funext, intro t,
   exact set.prod_image_image_eq
+end
+
+lemma prod_inf_prod {f₁ f₂ : filter α} {g₁ g₂ : filter β} :
+  filter.prod f₁ g₁ ⊓ filter.prod f₂ g₂ = filter.prod (f₁ ⊓ f₂) (g₁ ⊓ g₂) :=
+le_antisymm
+  (le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht, 
+  begin
+    revert s hs t ht,
+    simp,
+    exact take s ⟨s₁, hs₁, s₂, hs₂, hs⟩ t ⟨t₁, ht₁, t₂, ht₂, ht⟩,
+      ⟨set.prod s₁ t₁, prod_mem_prod hs₁ ht₁, set.prod s₂ t₂, prod_mem_prod hs₂ ht₂, 
+      by rw [set.prod_inter_prod]; exact set.prod_mono hs ht⟩
+  end)
+  (le_inf (prod_mono inf_le_left inf_le_left) (prod_mono inf_le_right inf_le_right))
+
+lemma prod_neq_bot {f : filter α} {g : filter β} :
+  filter.prod f g ≠ ⊥ ↔ (f ≠ ⊥ ∧ g ≠ ⊥) :=
+calc filter.prod f g ≠ ⊥ ↔ (∀s∈f.sets, g.lift' (set.prod s) ≠ ⊥) :
+  begin
+    delta filter.prod,
+    rw [lift_neq_bot_iff],
+    exact (monotone_lift' monotone_const $ monotone_lam $ take s, set.monotone_prod monotone_id monotone_const)
+  end
+  ... ↔ (∀s∈f.sets, ∀t∈g.sets, s ≠ ∅ ∧ t ≠ ∅) :
+  begin
+    apply forall_congr, intro s,
+    apply forall_congr, intro hs,
+    rw [lift'_neq_bot_iff],
+    apply forall_congr, intro t,
+    apply forall_congr, intro ht,
+    rw [set.prod_neq_empty_iff],
+    exact set.monotone_prod monotone_const monotone_id
+  end
+  ... ↔ (∀s∈f.sets, s ≠ ∅) ∧ (∀t∈g.sets, t ≠ ∅) :
+    ⟨take h, ⟨take s hs, (h s hs univ univ_mem_sets).left,
+        take t ht, (h univ univ_mem_sets t ht).right⟩, 
+      take ⟨h₁, h₂⟩ s hs t ht, ⟨h₁ s hs, h₂ t ht⟩⟩
+  ... ↔ _ : by simp [forall_sets_neq_empty_iff_neq_bot]
+
+lemma prod_principal_principal {s : set α} {t : set β} :
+  filter.prod (principal s) (principal t) = principal (set.prod s t) :=
+begin
+  delta filter.prod,
+  rw [lift_principal, lift'_principal],
+  exact set.monotone_prod monotone_const monotone_id,
+  exact (monotone_lift' monotone_const $ monotone_lam $ 
+    take s, set.monotone_prod monotone_id monotone_const)
 end
 
 end prod

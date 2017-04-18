@@ -137,7 +137,8 @@ lemma mem_nhds_uniformity_iff {x : α} {s : set α} :
             from tr this rfl,
     hs⟩⟩
 
-lemma nhds_eq {x : α} : nhds x = uniformity^.lift' (λs:set (α×α), {y | (x, y) ∈ s}) :=
+lemma nhds_sets_eq_uniformity {x : α} :
+  nhds x = uniformity^.lift' (λs:set (α×α), {y | (x, y) ∈ s}) :=
 filter_eq $ set.ext $ take s,
   begin
     rw [mem_lift'_iff], tactic.swap, apply monotone_vimage,
@@ -152,7 +153,7 @@ filter_eq $ set.ext $ take s,
 lemma mem_nhds_left {x : α} {s : set (α×α)} (h : s ∈ (uniformity.sets : set (set (α×α)))) :
   {y : α | (x, y) ∈ s} ∈ (nhds x)^.sets :=
 have nhds x ≤ principal {y : α | (x, y) ∈ s},
-  by rw [nhds_eq]; exact infi_le_of_le s (infi_le _ h),
+  by rw [nhds_sets_eq_uniformity]; exact infi_le_of_le s (infi_le _ h),
 by simp at this; assumption
 
 lemma mem_nhds_right {y : α} {s : set (α×α)} (h : s ∈ (uniformity.sets : set (set (α×α)))) :
@@ -163,7 +164,7 @@ lemma lift_nhds_left {x : α} {g : set α → filter β} (hg : monotone g) :
   (nhds x)^.lift g = uniformity^.lift (λs:set (α×α), g {y | (x, y) ∈ s}) :=
 eq.trans
   begin
-    rw [nhds_eq],
+    rw [nhds_sets_eq_uniformity],
     exact (filter.lift_assoc $ monotone_comp monotone_vimage $ monotone_comp monotone_vimage monotone_principal)
   end
   (congr_arg _ $ funext $ take s, filter.lift_principal hg)
@@ -202,21 +203,55 @@ end
 
 lemma closure_eq_inter_uniformity {t : set (α×α)} :
   closure t = (⋂ d∈(@uniformity α _).sets, comp_rel d (comp_rel t d)) :=
-have ∀a b,
-  uniformity.lift' (λ (s : set (α × α)), set.prod {y : α | (y, a) ∈ s} {y : α | (b, y) ∈ s}) ⊓ principal t ≠ ⊥ ↔
-  (∀(i : set (α × α)), i ∈ (@uniformity α _).sets → (a, b) ∈ comp_rel i (comp_rel t i)),
-begin
-  intros a b,
-  rw [lift'_inf_principal_eq, lift'_neq_bot_iff],
-  apply forall_congr, intro s,
-  apply forall_congr, intro hs,
-end,
-begin
-  apply set.ext,
-  intro x, cases x with a b,
-  simp [closure_eq_nhds, nhds_eq_uniformity_prod],
-end
+set.ext $ take ⟨a, b⟩, 
+calc (a, b) ∈ closure t ↔ (nhds (a, b) ⊓ principal t ≠ ⊥) : by simp [closure_eq_nhds]
+  ... ↔ (((@prod.swap α α) <$> uniformity).lift'
+      (λ (s : set (α × α)), set.prod {x : α | (x, a) ∈ s} {y : α | (b, y) ∈ s}) ⊓ principal t ≠ ⊥) :
+    by rw [-uniformity_eq_symm, nhds_eq_uniformity_prod]
+  ... ↔ ((map (@prod.swap α α) uniformity).lift'
+      (λ (s : set (α × α)), set.prod {x : α | (x, a) ∈ s} {y : α | (b, y) ∈ s}) ⊓ principal t ≠ ⊥) :
+    by refl
+  ... ↔ (uniformity.lift'
+      (λ (s : set (α × α)), set.prod {y : α | (a, y) ∈ s} {x : α | (x, b) ∈ s}) ⊓ principal t ≠ ⊥) :
+  begin
+    rw [map_lift'_eq2],
+    simp [image_swap_eq_vimage_swap, function.comp],
+    exact monotone_prod monotone_vimage monotone_vimage
+  end
+  ... ↔ (∀s∈(@uniformity α _).sets, ∃x, x ∈ set.prod {y : α | (a, y) ∈ s} {x : α | (x, b) ∈ s} ∩ t) :
+  begin
+    rw [lift'_inf_principal_eq, lift'_neq_bot_iff],
+    apply forall_congr, intro s, rw [ne_empty_iff_exists_mem],
+    exact monotone_inter (monotone_prod monotone_vimage monotone_vimage) monotone_const
+  end
+  ... ↔ (∀s∈(@uniformity α _).sets, (a, b) ∈ comp_rel s (comp_rel t s)) :
+    forall_congr $ take s, forall_congr $ take hs,
+    ⟨take ⟨⟨x, y⟩, ⟨⟨hx, hy⟩, hxyt⟩⟩, ⟨x, hx, y, hxyt, hy⟩,
+      take ⟨x, hx, y, hxyt, hy⟩, ⟨⟨x, y⟩, ⟨⟨hx, hy⟩, hxyt⟩⟩⟩
+  ... ↔ _ : by simp
 
+lemma uniformity_eq_uniformity_closure : (@uniformity α _) = uniformity.lift' closure :=
+le_antisymm
+  (le_infi $ take s, le_infi $ take hs, by simp; exact uniformity.upwards_sets hs subset_closure)
+  (calc uniformity.lift' closure ≤ uniformity.lift' (λd, comp_rel d (comp_rel d d)) :
+      lift'_mono' (by intros s hs; rw [closure_eq_inter_uniformity]; exact bInter_subset_of_mem hs)
+    ... = uniformity.lift (λs, uniformity.lift' (λt:set(α×α), comp_rel s (comp_rel t t))) :
+    begin
+      rw [lift_lift'_same_eq_lift'],
+      exact (take x, monotone_comp_rel monotone_const $ monotone_comp_rel monotone_id monotone_id),
+      exact (take x, monotone_comp_rel monotone_id monotone_const),
+    end
+    ... = uniformity.lift (λs, uniformity.lift (λt, uniformity.lift' (λu:set(α×α), comp_rel s (comp_rel t u)))) :
+      congr_arg _ $ funext $ take x,
+      begin
+        rw [lift_lift'_same_eq_lift'],
+        exact (take x, monotone_comp_rel monotone_const $ monotone_comp_rel monotone_const monotone_id),
+        exact (take x, monotone_comp_rel monotone_const $ monotone_comp_rel monotone_id monotone_const),
+      end
+    ... ≤ uniformity.lift (λs, uniformity.lift (principal ∘ (λt:set(α×α), comp_rel s t))) :
+      lift_mono' $ take s hs, @uniformity_lift_le_trans α _ _ (principal ∘ (λt:set(α×α), comp_rel s t)) $
+        monotone_comp (monotone_comp_rel monotone_const monotone_id) monotone_principal
+    ... ≤ uniformity : trans_le_uniformity')
 
 /- uniform continuity -/
 
@@ -240,6 +275,42 @@ calc filter.prod (nhds a) (nhds a) =
   ... ≤ uniformity^.lift (λs:set (α×α), uniformity^.lift' (comp_rel s)) :
     lift_mono' $ take s hs, lift'_mono' $ take t ht, take ⟨b, c⟩ ⟨ha, hb⟩, ⟨a, ha, hb⟩
   ... ≤ uniformity : trans_le_uniformity'
+
+lemma cauchy_le_nhds_of_adhp {f : filter α} {x : α} (hf : cauchy f)
+  (adhs : f ⊓ nhds x ≠ ⊥) : f ≤ nhds x :=
+have ∀s∈f.sets, x ∈ closure s,
+begin
+  intros s hs,
+  simp [closure_eq_nhds, inf_comm],
+  exact take h', adhs $ bot_unique $ h' ▸ inf_le_inf (by simp; exact hs) (le_refl _)
+end,
+calc f ≤ f.lift' (λs:set α, {y | x ∈ closure s ∧ y ∈ closure s}) :
+    le_infi $ take s, le_infi $ take hs,
+    begin
+      rw [-forall_sets_neq_empty_iff_neq_bot] at adhs,
+      simp [this s hs],
+      exact f.upwards_sets hs subset_closure
+    end
+  ... ≤ f.lift' (λs:set α, {y | (x, y) ∈ closure (set.prod s s)}) :
+    by simp [closure_prod_eq]; exact le_refl _
+  ... = (filter.prod f f).lift' (λs:set (α×α), {y | (x, y) ∈ closure s}) : 
+  begin
+    rw [prod_same_eq],
+    rw [lift'_lift'_assoc],
+    exact monotone_prod monotone_id monotone_id,
+    exact monotone_comp (take s t h x h', closure_mono h h') monotone_vimage
+  end
+  ... ≤ uniformity.lift' (λs:set (α×α), {y | (x, y) ∈ closure s}) : lift'_mono hf (le_refl _)
+  ... = (uniformity.lift' closure).lift' (λs:set (α×α), {y | (x, y) ∈ s}) :
+  begin
+    rw [lift'_lift'_assoc],
+    exact take s t h, closure_mono h,
+    exact monotone_vimage
+  end
+  ... = uniformity.lift' (λs:set (α×α), {y | (x, y) ∈ s}) :
+    by rw [-uniformity_eq_uniformity_closure]
+  ... = nhds x :
+    by rw [nhds_sets_eq_uniformity]
 
 lemma cauchy_map [uniform_space β] {f : filter α} {m : α → β}
   (hm : uniform m) (hf : cauchy f) : cauchy (map m f) :=

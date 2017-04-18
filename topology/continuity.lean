@@ -254,6 +254,14 @@ by rw [prod_eq_generate_from, nhds_generate_from];
           (mem_nhds_sets_iff.mpr ⟨t', subset.refl t', ht', hb⟩)
       end)
 
+lemma closure_prod_eq {s : set α} {t : set β} :
+  closure (set.prod s t) = set.prod (closure s) (closure t) :=
+set.ext $ take ⟨a, b⟩,
+have filter.prod (nhds a) (nhds b) ⊓ principal (set.prod s t) = 
+  filter.prod (nhds a ⊓ principal s) (nhds b ⊓ principal t),
+  by rw [-prod_inf_prod, prod_principal_principal],
+by simp [closure_eq_nhds, nhds_prod_eq, this]; exact prod_neq_bot
+
 end prod
 
 section sum

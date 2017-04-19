@@ -258,10 +258,6 @@ le_antisymm
 definition uniform [uniform_space β] (f : α → β) :=
 filter.map (λx:α×α, (f x.1, f x.2)) uniformity ≤ uniformity
 
-definition uniform_embedding [uniform_space β] (f : α → β) :=
-(∀x y, f x = f y → x = y) ∧
-filter.vmap (λx:α×α, (f x.1, f x.2)) uniformity = uniformity
-
 /- cauchy filters -/
 definition cauchy (f : filter α) := filter.prod f f ≤ uniformity
 
@@ -319,6 +315,13 @@ calc filter.prod (map m f) (map m f) =
   ... ≤ map (λp:α×α, (m p.1, m p.2)) uniformity : map_mono hf
   ... ≤ uniformity : hm
 
+lemma cauchy_vmap [uniform_space β] {f : filter β} {m : α → β}
+  (hm : vmap (λp:α×α, (m p.1, m p.2)) uniformity ≤ uniformity) (hf : cauchy f) : cauchy (vmap m f) :=
+calc filter.prod (vmap m f) (vmap m f) =
+        vmap (λp:α×α, (m p.1, m p.2)) (filter.prod f f) : filter.prod_vmap_vmap_eq
+  ... ≤ vmap (λp:α×α, (m p.1, m p.2)) uniformity : vmap_mono hf
+  ... ≤ uniformity : hm
+
 /- separated uniformity -/
 
 @[class]
@@ -337,7 +340,7 @@ definition totally_bounded (α : Type u) [uniform_space α] :=
 definition complete (α : Type u) [uniform_space α] := ∀f:filter α, cauchy f → ∃x, f ≤ nhds x
 
 lemma complete_extension [uniform_space β] {m : β → α}
-  (hm : uniform m) (dense : ∀x, x ∈ closure (m ' univ))
+  (dense : ∀x, x ∈ closure (m ' univ))
   (h : ∀f:filter β, cauchy f → ∃x:α, map m f ≤ nhds x) :
   complete α :=
 take (f : filter α), assume hf : cauchy f,
@@ -368,19 +371,16 @@ have cauchy g, from
       trans_s₂ $ prod_mk_mem_comp_rel (prod_t this) hc₂),
 
 have cauchy (filter.vmap m g),
-  from _,
+  from cauchy_vmap _ this,
 let ⟨x, (hx : map m (filter.vmap m g) ≤ nhds x)⟩ := h _ this in
 
-have map m (filter.vmap m g) ≤ g, 
-  from take s hs, ⟨s, hs, subset.refl _⟩,
-
-⟨x,
-calc f ≤ g :
-    le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht,
+have f ≤ g,
+  from le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht,
     le_principal_iff.mpr $
     f.upwards_sets ht $
-    take x hx, ⟨x, hx, refl_mem_uniformity hs⟩
-  ... ≤ nhds x : hx⟩
+    take x hx, ⟨x, hx, refl_mem_uniformity hs⟩,
+
+⟨x, _⟩
 
 end uniform_space
 end

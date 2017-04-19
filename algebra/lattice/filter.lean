@@ -705,6 +705,24 @@ lemma infi_neq_bot_iff_of_directed {f : ι → filter α}
 ⟨take neq_bot i eq_bot, neq_bot $ bot_unique $ infi_le_of_le i $ eq_bot ▸ le_refl _,
   infi_neq_bot_of_directed hn hd⟩
 
+/- vmap -/
+
+lemma mem_vmap_of_mem {f : filter β} {m : α → β} {s : set β} (h : s ∈ f.sets) :
+  vimage m s ∈ (vmap m f).sets :=
+⟨s, h, subset.refl _⟩
+
+lemma vmap_mono {f g : filter β} {m : α → β} (h : f ≤ g) : vmap m f ≤ vmap m g :=
+take s ⟨t, ht, h_sub⟩, ⟨t, h ht, h_sub⟩
+
+lemma monotone_vmap {m : β → α} : monotone (vmap m : filter α → filter β) :=
+take a b h, vmap_mono h
+
+@[simp]
+lemma vmap_principal {t : set β} {m : α → β} : vmap m (principal t) = principal (vimage m t) :=
+filter_eq $ set.ext $ take s,
+  ⟨take ⟨u, (hu : t ⊆ u), (b : vimage m u ⊆ s)⟩, subset.trans (vimage_mono hu) b,
+    suppose vimage m t ⊆ s, ⟨t, subset.refl t, this⟩⟩
+
 section lift
 
 protected def lift (f : filter α) (g : set α → filter β) :=
@@ -740,6 +758,18 @@ have monotone (map m ∘ g),
   from monotone_comp hg monotone_map,
 filter_eq $ set.ext $
   by simp [mem_lift_iff, hg, @mem_lift_iff _ _ f _ this]
+
+lemma vmap_lift_eq {m : γ → β} (hg : monotone g) :
+  vmap m (f^.lift g) = f^.lift (vmap m ∘ g) :=
+have monotone (vmap m ∘ g),
+  from monotone_comp hg monotone_vmap,
+filter_eq $ set.ext $
+begin
+  simp [vmap, mem_lift_iff, hg, @mem_lift_iff _ _ f _ this],
+  simp [vmap, function.comp],
+  exact take s, ⟨take ⟨t₁, hs, t₂, ht, ht₁⟩, ⟨t₂, ht, t₁, hs, ht₁⟩,
+    take ⟨t₂, ht, t₁, hs, ht₁⟩, ⟨t₁, hs, t₂, ht, ht₁⟩⟩
+end
 
 lemma map_lift_eq2 {g : set β → filter γ} {m : α → β} (hg : monotone g) :
   (map m f)^.lift g = f^.lift (g ∘ image m) :=
@@ -844,6 +874,12 @@ lemma map_lift'_eq2 {g : set β → set γ} {m : α → β} (hg : monotone g) :
   (map m f)^.lift' g = f^.lift' (g ∘ image m) :=
 map_lift_eq2 $ monotone_comp hg monotone_principal
 
+lemma vmap_lift'_eq {m : γ → β} (hh : monotone h) :
+  vmap m (f^.lift' h) = f^.lift' (vimage m ∘ h) :=
+calc vmap m (f^.lift' h) = f^.lift (vmap m ∘ principal ∘ h) :
+    vmap_lift_eq $ monotone_comp hh monotone_principal
+  ... = f^.lift' (vimage m ∘ h) : by simp [function.comp, filter.lift']
+
 lemma lift'_principal {s : set α} (hh : monotone h) :
   (principal s)^.lift' h = principal (h s) :=
 lift_principal $ monotone_comp hh monotone_principal
@@ -903,15 +939,6 @@ calc (f^.lift' h ≠ ⊥) ↔ (∀s∈f.sets, principal (h s) ≠ ⊥) :
 end
 
 end lift
-
-/- vmap equations -/
-
-lemma mem_vmap_of_mem {f : filter β} {m : α → β} {s : set β} (h : s ∈ f.sets) :
-  vimage m s ∈ (vmap m f).sets :=
-⟨s, h, subset.refl _⟩
-
-lemma vmap_mono {f g : filter β} {m : α → β} (h : f ≤ g) : vmap m f ≤ vmap m g :=
-take s ⟨t, ht, h_sub⟩, ⟨t, h ht, h_sub⟩
 
 lemma vmap_eq_lift' {f : filter β} {m : α → β} :
   vmap m f = f.lift' (vimage m) :=
@@ -1024,6 +1051,24 @@ begin
   rw [map_lift'_eq2], tactic.swap, exact set.monotone_prod monotone_const monotone_id,
   apply congr_arg, apply funext, intro t,
   exact set.prod_image_image_eq
+end
+
+lemma prod_vmap_vmap_eq {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x}
+  {f₁ : filter α₁} {f₂ : filter α₂} {m₁ : β₁ → α₁} {m₂ : β₂ → α₂} :
+  filter.prod (vmap m₁ f₁) (vmap m₂ f₂) = vmap (λp:β₁×β₂, (m₁ p.1, m₂ p.2)) (filter.prod f₁ f₂) :=
+have ∀s t, set.prod (vimage m₁ s) (vimage m₂ t) = vimage (λp:β₁×β₂, (m₁ p.1, m₂ p.2)) (set.prod s t),
+  from take s t, rfl,
+begin
+  rw [vmap_eq_lift', vmap_eq_lift', prod_lift'_lift'],
+  simp [this, filter.prod],
+  rw [vmap_lift_eq], tactic.swap, exact (monotone_lift' monotone_const $
+    monotone_lam $ take t, set.monotone_prod monotone_id monotone_const),
+  apply congr_arg, apply funext, intro t',
+  dsimp [function.comp],
+  rw [vmap_lift'_eq],
+  exact set.monotone_prod monotone_const monotone_id,
+  exact monotone_vimage,
+  exact monotone_vimage
 end
 
 lemma prod_inf_prod {f₁ f₂ : filter α} {g₁ g₂ : filter β} :

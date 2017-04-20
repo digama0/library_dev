@@ -22,10 +22,6 @@ have a ∉ ({a} : set α),
 this $ mem_singleton a
 
 @[simp]
-lemma principal_eq_bot_iff {α : Type u} {s : set α} : principal s = ⊥ ↔ s = ∅ :=
-principal_eq_iff_eq
-
-@[simp]
 lemma return_neq_bot {α : Type u} {a : α} : return a ≠ (⊥ : filter α) :=
 by simp [return, pure]
 

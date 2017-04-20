@@ -425,6 +425,16 @@ def at_bot [weak_order α] : filter α := ⨅ a, principal {b | b ≤ a}
 
 /- lattice equations -/
 
+lemma mem_inf_sets_of_left {f g : filter α} {s : set α} :
+  s ∈ f.sets → s ∈ (f ⊓ g)^.sets :=
+have f ⊓ g ≤ f, from inf_le_left,
+take hs, this hs
+
+lemma mem_inf_sets_of_right {f g : filter α} {s : set α} :
+  s ∈ g.sets → s ∈ (f ⊓ g)^.sets :=
+have f ⊓ g ≤ g, from inf_le_right,
+take hs, this hs
+
 @[simp]
 lemma mem_bot_sets {s : set α} : s ∈ (⊥ : filter α)^.sets :=
 take x, false.elim
@@ -578,6 +588,7 @@ rfl
 lemma principal_empty : principal (∅ : set α) = bot :=
 rfl
 
+@[simp]
 lemma principal_eq_bot_iff {s : set α} : principal s = ⊥ ↔ s = ∅ :=
 ⟨take h, principal_eq_iff_eq.mp $ by simp [principal_empty, h], take h, by simph [principal_empty]⟩
 
@@ -608,6 +619,11 @@ filter_eq $ set.ext $ take x, by simp [supr_sets_eq, map]
 @[simp]
 lemma map_bot {m : α → β} : map m ⊥ = ⊥ :=
 filter_eq $ set.ext $ take x, by simp
+
+@[simp]
+lemma map_eq_bot_iff {f : filter α} {m : α → β} : map m f = ⊥ ↔ f = ⊥ :=
+⟨by rw [-empty_in_sets_eq_bot, -empty_in_sets_eq_bot]; exact id,
+  take h, by simph⟩
 
 lemma map_mono {f g : filter α} {m : α → β} (h : f ≤ g) : map m f ≤ map m g :=
 le_of_sup_eq $ calc
@@ -705,23 +721,25 @@ lemma infi_neq_bot_iff_of_directed {f : ι → filter α}
 ⟨take neq_bot i eq_bot, neq_bot $ bot_unique $ infi_le_of_le i $ eq_bot ▸ le_refl _,
   infi_neq_bot_of_directed hn hd⟩
 
-/- vmap -/
+section vmap
+variables {f f₁ f₂ : filter β} {m : α → β}
 
-lemma mem_vmap_of_mem {f : filter β} {m : α → β} {s : set β} (h : s ∈ f.sets) :
-  vimage m s ∈ (vmap m f).sets :=
+lemma mem_vmap_of_mem {s : set β} (h : s ∈ f.sets) : vimage m s ∈ (vmap m f).sets :=
 ⟨s, h, subset.refl _⟩
 
-lemma vmap_mono {f g : filter β} {m : α → β} (h : f ≤ g) : vmap m f ≤ vmap m g :=
+lemma vmap_mono (h : f₁ ≤ f₂) : vmap m f₁ ≤ vmap m f₂ :=
 take s ⟨t, ht, h_sub⟩, ⟨t, h ht, h_sub⟩
 
-lemma monotone_vmap {m : β → α} : monotone (vmap m : filter α → filter β) :=
+lemma monotone_vmap : monotone (vmap m : filter β → filter α) :=
 take a b h, vmap_mono h
 
 @[simp]
-lemma vmap_principal {t : set β} {m : α → β} : vmap m (principal t) = principal (vimage m t) :=
+lemma vmap_principal {t : set β} : vmap m (principal t) = principal (vimage m t) :=
 filter_eq $ set.ext $ take s,
   ⟨take ⟨u, (hu : t ⊆ u), (b : vimage m u ⊆ s)⟩, subset.trans (vimage_mono hu) b,
     suppose vimage m t ⊆ s, ⟨t, subset.refl t, this⟩⟩
+
+end vmap
 
 section lift
 

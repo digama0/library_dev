@@ -360,6 +360,11 @@ or.elim (eq_or_mem_of_mem_insert h)
   (suppose x = y, this)
   (suppose x ∈ (∅ : set α), absurd this (not_mem_empty _))
 
+@[simp]
+theorem singleton_eq_singleton_iff {x y : α} : {x} = ({y} : set α) ↔ x = y :=
+⟨take eq, eq_of_mem_singleton $ eq ▸ mem_singleton x,
+  by intro; simph⟩
+
 theorem mem_singleton_of_eq {x y : α} (H : x = y) : x ∈ ({y} : set α) :=
 eq.subst (eq.symm H) (mem_singleton y)
 

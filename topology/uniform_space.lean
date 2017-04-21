@@ -8,6 +8,8 @@ Theory of uniform spaces.
 import algebra.lattice.filter .topological_space .continuity
 open set lattice filter
 
+attribute [trans] subset.trans
+
 universes u v w x
 
 section
@@ -25,6 +27,10 @@ take a b h p ⟨z, h₁, h₂⟩, ⟨z, hf h h₁, hg h h₂⟩
 lemma prod_mk_mem_comp_rel {a b c : α} {s t : set (α×α)} (h₁ : (a, c) ∈ s) (h₂ : (c, b) ∈ t) :
   (a, b) ∈ comp_rel s t :=
 ⟨c, h₁, h₂⟩
+
+@[simp]
+lemma mem_pure {a : α} {s : set α} : a ∈ s → s ∈ (pure a : filter α).sets :=
+by simp [pure]; exact id
 
 @[simp]
 lemma set.prod_singleton_singleton {a : α} {b : β} :
@@ -47,7 +53,7 @@ class uniform_space (α : Type u) :=
 (uniformity : filter (α × α))
 (refl       : principal id_rel ≤ uniformity)
 (symm       : prod.swap <$> uniformity ≤ uniformity)
-(trans      : uniformity^.lift (λs, uniformity^.lift' (comp_rel s)) ≤ uniformity)
+(trans      : uniformity^.lift' (λs, comp_rel s s) ≤ uniformity)
 
 section uniform_space
 variables [uniform_space α]
@@ -64,19 +70,9 @@ refl_le_uniformity h rfl
 lemma symm_le_uniformity : map (@prod.swap α α) uniformity ≤ uniformity :=
 uniform_space.symm α
 
-lemma trans_le_uniformity' :
-  uniformity^.lift (λs:set (α×α), uniformity^.lift' (comp_rel s)) ≤ uniformity :=
-uniform_space.trans α
-
 lemma trans_le_uniformity :
-  uniformity^.lift' (λt:set (α×α), comp_rel t t) ≤ uniformity :=
-calc uniformity^.lift' (λt:set (α×α), comp_rel t t) ≤
-        uniformity^.lift (λs:set (α×α), uniformity^.lift' (comp_rel s)) :
-    (le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht,
-      infi_le_of_le (s ∩ t) $
-      infi_le_of_le (inter_mem_sets hs ht) $
-      principal_mono.mpr $ take x ⟨z, ⟨h₁, _⟩, ⟨_, h₂⟩⟩, ⟨z, h₁, h₂⟩)
-  ... ≤ uniformity : trans_le_uniformity'
+  uniformity^.lift' (λs:set (α×α), comp_rel s s) ≤ uniformity :=
+uniform_space.trans α
 
 lemma trans_mem_uniformity_sets {s : set (α × α)} (hs : s ∈ (@uniformity α _).sets) :
   ∃t∈(@uniformity α _).sets, comp_rel t t ⊆ s :=
@@ -102,19 +98,33 @@ le_trans
   (by rw [map_lift_eq2 hg, image_swap_eq_vimage_swap]; exact h)
 
 lemma uniformity_lift_le_trans {f : set (α×α) → filter β} (h : monotone f):
-  uniformity.lift (λs, uniformity.lift (λt, f (comp_rel s t))) ≤ uniformity.lift f :=
-calc uniformity.lift (λs, uniformity.lift (λt, f (comp_rel s t))) =
-    (uniformity.lift (λs:set (α×α), uniformity.lift' (λt:set (α×α), comp_rel s t)))^.lift f :
+  uniformity.lift (λs, f (comp_rel s s)) ≤ uniformity.lift f :=
+calc uniformity.lift (λs, f (comp_rel s s)) =
+    (uniformity.lift' (λs:set (α×α), comp_rel s s))^.lift f :
   begin
-    rw [lift_assoc],
-    apply congr_arg, apply funext, intro s,
     rw [lift_lift'_assoc],
-    exact monotone_comp_rel monotone_const monotone_id,
-    exact h,
-    exact (monotone_lift' monotone_const $ monotone_lam $
-      take t, monotone_comp_rel monotone_id monotone_const)
+    exact monotone_comp_rel monotone_id monotone_id,
+    exact h
   end
-  ... ≤ uniformity.lift f : lift_mono trans_le_uniformity' (le_refl _)
+  ... ≤ uniformity.lift f : lift_mono trans_le_uniformity (le_refl _)
+
+lemma trans_le_uniformity3 :
+  uniformity^.lift' (λs:set (α×α), comp_rel s (comp_rel s s)) ≤ uniformity :=
+calc uniformity.lift' (λd, comp_rel d (comp_rel d d)) =
+  uniformity.lift (λs, uniformity.lift' (λt:set(α×α), comp_rel s (comp_rel t t))) :
+  begin
+    rw [lift_lift'_same_eq_lift'],
+    exact (take x, monotone_comp_rel monotone_const $ monotone_comp_rel monotone_id monotone_id),
+    exact (take x, monotone_comp_rel monotone_id monotone_const),
+  end
+  ... ≤ uniformity.lift (λs, uniformity.lift' (λt:set(α×α), comp_rel s t)) :
+    lift_mono' $ take s hs, @uniformity_lift_le_trans α _ _ (principal ∘ comp_rel s) $
+      monotone_comp (monotone_comp_rel monotone_const monotone_id) monotone_principal
+  ... = uniformity.lift' (λs:set(α×α), comp_rel s s) :
+    lift_lift'_same_eq_lift'
+      (take s, monotone_comp_rel monotone_const monotone_id)
+      (take s, monotone_comp_rel monotone_id monotone_const)
+  ... ≤ uniformity : trans_le_uniformity
 
 instance topological_space_of_uniformity : topological_space α :=
 { open'       := λs, ∀x∈s, { p : α × α | p.1 = x → p.2 ∈ s } ∈ (uniformity.sets : set (set (α×α))),
@@ -250,23 +260,7 @@ le_antisymm
   (le_infi $ take s, le_infi $ take hs, by simp; exact uniformity.upwards_sets hs subset_closure)
   (calc uniformity.lift' closure ≤ uniformity.lift' (λd, comp_rel d (comp_rel d d)) :
       lift'_mono' (by intros s hs; rw [closure_eq_inter_uniformity]; exact bInter_subset_of_mem hs)
-    ... = uniformity.lift (λs, uniformity.lift' (λt:set(α×α), comp_rel s (comp_rel t t))) :
-    begin
-      rw [lift_lift'_same_eq_lift'],
-      exact (take x, monotone_comp_rel monotone_const $ monotone_comp_rel monotone_id monotone_id),
-      exact (take x, monotone_comp_rel monotone_id monotone_const),
-    end
-    ... = uniformity.lift (λs, uniformity.lift (λt, uniformity.lift' (λu:set(α×α), comp_rel s (comp_rel t u)))) :
-      congr_arg _ $ funext $ take x,
-      begin
-        rw [lift_lift'_same_eq_lift'],
-        exact (take x, monotone_comp_rel monotone_const $ monotone_comp_rel monotone_const monotone_id),
-        exact (take x, monotone_comp_rel monotone_const $ monotone_comp_rel monotone_id monotone_const),
-      end
-    ... ≤ uniformity.lift (λs, uniformity.lift (principal ∘ (λt:set(α×α), comp_rel s t))) :
-      lift_mono' $ take s hs, @uniformity_lift_le_trans α _ _ (principal ∘ (λt:set(α×α), comp_rel s t)) $
-        monotone_comp (monotone_comp_rel monotone_const monotone_id) monotone_principal
-    ... ≤ uniformity : trans_le_uniformity')
+    ... ≤ uniformity : trans_le_uniformity3)
 
 /- uniform continuity -/
 
@@ -292,9 +286,12 @@ lemma cauchy_nhds {a : α} : cauchy (nhds a) :=
   calc filter.prod (nhds a) (nhds a) =
     uniformity^.lift (λs:set (α×α), uniformity^.lift' (λt:set(α×α),
       set.prod {y : α | (y, a) ∈ s} {y : α | (a, y) ∈ t})) : nhds_nhds_eq_uniformity_uniformity_prod
-    ... ≤ uniformity^.lift (λs:set (α×α), uniformity^.lift' (comp_rel s)) :
-      lift_mono' $ take s hs, lift'_mono' $ take t ht, take ⟨b, c⟩ ⟨ha, hb⟩, ⟨a, ha, hb⟩
-    ... ≤ uniformity : trans_le_uniformity'⟩
+    ... ≤ uniformity^.lift' (λs:set (α×α), comp_rel s s) :
+      le_infi $ take s, le_infi $ take hs,
+      infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le s $ infi_le_of_le hs $
+      principal_mono.mpr $ 
+      take ⟨x, y⟩ ⟨(hx : (x, a) ∈ s), (hy : (a, y) ∈ s)⟩, ⟨a, hx, hy⟩
+    ... ≤ uniformity : trans_le_uniformity⟩
 
 lemma cauchy_pure {a : α} : cauchy (pure a) :=
 cauchy_downwards cauchy_nhds
@@ -361,9 +358,27 @@ lemma cauchy_vmap [uniform_space β] {f : filter β} {m : α → β}
 
 /- separated uniformity -/
 
+protected def separation_rel (α : Type u) [uniform_space α] :=
+(⋂₀ (@uniformity α _).sets)
+
+lemma separated_equiv : equivalence (λx y, (x, y) ∈ separation_rel α) :=
+⟨take x, take s, refl_mem_uniformity,
+  take x y, take h (s : set (α×α)) hs, 
+    have vimage prod.swap s ∈ (@uniformity α _).sets,
+      from symm_le_uniformity hs,
+    h _ this,
+  take x y z (hxy : (x, y) ∈ separation_rel α) (hyz : (y, z) ∈ separation_rel α)
+      s (hs : s ∈ (@uniformity α _).sets),
+    let ⟨t, ht, (h_ts : comp_rel t t ⊆ s)⟩ := trans_mem_uniformity_sets hs in
+    h_ts $ show (x, z) ∈ comp_rel t t,
+      from ⟨y, hxy t ht, hyz t ht⟩⟩
+
+protected def separation_setoid (α : Type u) [uniform_space α] : setoid α :=
+⟨λx y, (x, y) ∈ separation_rel α, separated_equiv⟩
+
 @[class]
 definition separated (α : Type u) [uniform_space α] :=
-(⋂₀ (@uniformity α _).sets) = id_rel
+separation_rel α = id_rel
 
 /- totally bounded -/
 
@@ -458,6 +473,55 @@ have g ⊓ nhds x ≠ ⊥,
     take x hx, ⟨x, hx, refl_mem_uniformity hs⟩
   ... ≤ nhds x : le_nhds_of_cauchy_adhp cauchy_g this⟩
 
+
+/- separation space -/
+section separation_space
+
+local attribute [instance] separation_setoid
+
+instance : uniform_space (quotient (separation_setoid α)) :=
+{ uniform_space .
+  uniformity := map (λp:(α×α), (⟦p.1⟧, ⟦p.2⟧)) uniformity,
+  refl  := take s hs ⟨a, b⟩ (h : a = b),
+    have ∀a:α, (a, a) ∈ vimage (λ (p : α × α), (⟦p.fst⟧, ⟦p.snd⟧)) s,
+      from take a, refl_mem_uniformity hs,
+    h ▸ quotient.induction_on a this,
+  symm  :=
+    have prod.swap ∘ (λ (p : α × α), (⟦p.fst⟧, ⟦p.snd⟧)) = 
+      (λ (p : α × α), (⟦p.fst⟧, ⟦p.snd⟧)) ∘ prod.swap,
+      from funext $ take ⟨a, b⟩, rfl,
+    calc (map prod.swap ∘ map (λp:(α×α), (⟦p.1⟧, ⟦p.2⟧))) uniformity =
+            (map (λp:(α×α), (⟦p.1⟧, ⟦p.2⟧)) ∘ map prod.swap) uniformity : by simp [map_compose, this]
+      ... ≤ map (λp:(α×α), (⟦p.1⟧, ⟦p.2⟧)) uniformity : map_mono symm_le_uniformity,
+  trans := calc (map (λ (p : α × α), (⟦p.fst⟧, ⟦p.snd⟧)) uniformity).lift' (λs, comp_rel s s) =
+          uniformity.lift' ((λs, comp_rel s s) ∘ image (λ (p : α × α), (⟦p.fst⟧, ⟦p.snd⟧))) :
+      map_lift'_eq2 $ monotone_comp_rel monotone_id monotone_id
+    ... ≤ uniformity.lift' (image (λ (p : α × α), (⟦p.fst⟧, ⟦p.snd⟧)) ∘ (λs:set (α×α), comp_rel s (comp_rel s s))) :
+      lift'_mono' $ take s hs ⟨a, b⟩ ⟨c, ⟨⟨a₁, a₂⟩, ha, a_eq⟩, ⟨⟨b₁, b₂⟩, hb, b_eq⟩⟩, 
+      begin
+        simp at a_eq,
+        simp at b_eq,
+        assert h : ⟦a₂⟧ = ⟦b₁⟧, { rw [a_eq.right, b_eq.left] },
+        assertv h : (a₂, b₁) ∈ separation_rel α := quotient.exact h,
+        simp [function.comp, set.image, comp_rel],
+        exact ⟨a₁, a_eq.left, b₂, b_eq.right, a₂, ha, b₁, h s hs, hb⟩
+      end
+    ... = map (λp:(α×α), (⟦p.1⟧, ⟦p.2⟧)) (uniformity.lift' (λs:set (α×α), comp_rel s (comp_rel s s))) :
+      by rw [map_lift'_eq];
+        exact monotone_comp_rel monotone_id (monotone_comp_rel monotone_id monotone_id)
+    ... ≤ map (λp:(α×α), (⟦p.1⟧, ⟦p.2⟧)) uniformity :
+      map_mono trans_le_uniformity3 }
+
+lemma uniform_continuous_quotient_mk :
+  uniform_continuous (quotient.mk : α → quotient (separation_setoid α)) :=
+le_refl _
+
+lemma complete_separation [complete α] :
+  complete (quotient (separation_setoid α)) :=
+_
+
+end separation_space
+
 end uniform_space
 end
 
@@ -517,33 +581,23 @@ let ⟨x, xt₂, xt₃⟩ :=
       h₂ (show (x, b) ∈ set.prod t₃ t₄, from ⟨xt₃, hb⟩)⟩)
 
 private lemma trans_gen :
-    (uniformity^.lift' gen)^.lift (λs, (uniformity^.lift' gen)^.lift' (comp_rel s)) ≤
-    uniformity^.lift' gen :=
-calc (uniformity^.lift' gen)^.lift (λs, (uniformity^.lift' gen)^.lift' (comp_rel s)) =
-    uniformity^.lift (λs, uniformity^.lift' (λt, comp_rel (gen s) (gen t))) :
+  (uniformity^.lift' gen)^.lift' (λs, comp_rel s s) ≤ uniformity^.lift' gen :=
+calc (uniformity^.lift' gen)^.lift' (λs, comp_rel s s) =
+    uniformity^.lift' (λs, comp_rel (gen s) (gen s)) :
   begin
-    rw [lift_lift'_assoc],
-    apply congr_arg, apply funext, intro x,
     rw [lift'_lift'_assoc],
     exact monotone_gen,
-    exact (monotone_comp_rel monotone_const monotone_id),
-    exact monotone_gen,
-    exact monotone_lift' monotone_const
-      (monotone_lam $ take t, monotone_comp_rel monotone_id monotone_const),
+    exact (monotone_comp_rel monotone_id monotone_id)
   end
-  ... ≤ uniformity^.lift (λs, uniformity^.lift' $ λt, gen $ comp_rel s t) :
-    lift_mono' $ take s hs, lift'_mono' $ take t ht, comp_rel_gen_gen_subset_gen_comp_rel
-  ... = (uniformity^.lift $ λs:set(α×α), uniformity^.lift' $ comp_rel s)^.lift' gen :
+  ... ≤ uniformity^.lift' (λs, gen $ comp_rel s s) :
+    lift'_mono' $ take s hs, comp_rel_gen_gen_subset_gen_comp_rel
+  ... = (uniformity^.lift' $ λs:set(α×α), comp_rel s s)^.lift' gen :
   begin
-    rw [lift'_lift_assoc],
-    apply congr_arg, apply funext, intro x,
     rw [lift'_lift'_assoc],
-    exact (monotone_comp_rel monotone_const monotone_id),
-    exact monotone_gen,
-    exact monotone_lift' monotone_const
-      (monotone_lam $ take t, monotone_comp_rel monotone_id monotone_const)
+    exact (monotone_comp_rel monotone_id monotone_id),
+    exact monotone_gen
   end
-  ... ≤ uniformity^.lift' gen : lift'_mono trans_le_uniformity' (le_refl _)
+  ... ≤ uniformity^.lift' gen : lift'_mono trans_le_uniformity (le_refl _)
 
 instance completion_space : uniform_space (Cauchy α) :=
 { uniformity := uniformity^.lift' gen,
@@ -561,6 +615,7 @@ lemma uniform_embedding_pure_cauchy : uniform_embedding (pure_cauchy : α → Ca
   have {a₁} = ({a₂} : set α),
     from principal_eq_iff_eq.mp this,
   by simp at this; assumption,
+
   have (vimage (λ (x : α × α), (pure_cauchy (x.fst), pure_cauchy (x.snd))) ∘ gen) = id,
     from funext $ take s, set.ext $ take ⟨a₁, a₂⟩,
       by simp [vimage, gen, pure_cauchy, pure, prod_principal_principal],
@@ -595,19 +650,23 @@ begin
       ne_empty_of_mem this)
 end
 
+set_option eqn_compiler.zeta true
+
 instance : complete (Cauchy α) :=
 complete_extension
   uniform_embedding_pure_cauchy
-  pure_cauchy_dense
-  (take f hf, ⟨⟨f, hf⟩,
-    begin
-      simp [nhds_eq_uniformity],
-      exact (le_lift' $ take s hs,
-        let ⟨t'', ht''₁, (ht''₂ : gen t'' ⊆ s)⟩ := (mem_lift'_iff monotone_gen).mp hs in
-        have {y:α | ((⟨f, hf⟩, pure_cauchy y) : Cauchy α × Cauchy α) ∈ gen t''} ∈ f.sets,
-          begin simp [gen, pure_cauchy] end,
-        show {y:α | ((⟨f, hf⟩ : Cauchy α), pure_cauchy y) ∈ s} ∈ f.sets, from
-          f.upwards_sets this $ vimage_mono ht''₂)
-    end⟩)
+  pure_cauchy_dense $
+  take f hf,
+  let f' : Cauchy α := ⟨f, hf⟩ in
+  have map pure_cauchy f ≤ uniformity.lift' (vimage (prod.mk f')),
+    from le_lift' $ take s hs,
+    let ⟨t, ht₁, (ht₂ : gen t ⊆ s)⟩ := (mem_lift'_iff monotone_gen).mp hs in
+    let ⟨t', ht', (h : set.prod t' t' ⊆ t)⟩ := mem_prod_same_iff.mp (hf.right ht₁) in
+    have t' ⊆ {y:α| (f', pure_cauchy y) ∈ gen t },
+      from take x hx, (filter.prod f (pure x)).upwards_sets (prod_mem_prod ht' $ mem_pure hx) h,
+    f.upwards_sets ht' $ subset.trans this (vimage_mono ht₂),
+  ⟨f', by simp [nhds_eq_uniformity]; assumption⟩
+
+end
 
 end Cauchy

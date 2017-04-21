@@ -13,7 +13,7 @@ attribute [trans] subset.trans
 universes u v w x
 
 section
-variables {α : Type u} {β : Type v}
+variables {α : Type u} {β : Type v} {γ : Type w}
 
 def id_rel {α : Type u} := {p : α × α | p.1 = p.2}
 
@@ -380,6 +380,27 @@ protected def separation_setoid (α : Type u) [uniform_space α] : setoid α :=
 definition separated (α : Type u) [uniform_space α] :=
 separation_rel α = id_rel
 
+instance separated_t2 [s : separated α] : t2_space α :=
+take x y, assume h : x ≠ y,
+have separation_rel α = id_rel,
+  from s,
+have (x, y) ∉ separation_rel α,
+  by simp [this]; exact h,
+let ⟨d, hd, (hxy : (x, y) ∉ d)⟩ := classical.bexists_not_of_not_bforall this in
+let ⟨d', hd', (hd'd' : comp_rel d' d' ⊆ d)⟩ := trans_mem_uniformity_sets hd in
+have {y | (x, y) ∈ d'} ∈ (nhds x).sets,
+  from mem_nhds_left hd',
+let ⟨u, hu₁, hu₂, hu₃⟩ := mem_nhds_sets_iff.mp this in
+have {x | (x, y) ∈ d'} ∈ (nhds y).sets,
+  from mem_nhds_right hd',
+let ⟨v, hv₁, hv₂, hv₃⟩ := mem_nhds_sets_iff.mp this in
+have u ∩ v = ∅, from
+  eq_empty_of_subset_empty $
+  take z ⟨(h₁ : z ∈ u), (h₂ : z ∈ v)⟩, 
+  have (x, y) ∈ comp_rel d' d', from ⟨z, hu₁ h₁, hv₁ h₂⟩,
+  hxy $ hd'd' this,
+⟨u, v, hu₂, hv₂, hu₃, hv₃, this⟩
+
 /- totally bounded -/
 
 @[class]
@@ -389,7 +410,7 @@ definition totally_bounded (α : Type u) [uniform_space α] :=
 /- complete space -/
 
 @[class]
-definition complete (α : Type u) [uniform_space α] := ∀f:filter α, cauchy f → ∃x, f ≤ nhds x
+definition complete (α : Type u) [uniform_space α] := ∀(f:filter α), cauchy f → ∃x, f ≤ nhds x
 
 lemma complete_extension [uniform_space β] {m : β → α}
   (hm : uniform_embedding m)
@@ -518,10 +539,78 @@ le_refl _
 
 lemma complete_separation [complete α] :
   complete (quotient (separation_setoid α)) :=
-_
+sorry
 
 end separation_space
 
+noncomputable def uniformly_extend [uniform_space γ] [nonempty γ]
+  (emb : β → α) (f : β → γ) (a : α) : γ :=
+classical.epsilon $ λc, map f (vmap emb (nhds a)) ≤ nhds c
+
+section uniform_extension
+
+variables
+  [uniform_space β]
+  [uniform_space γ]
+  {e : β → α}
+  (h_e : uniform_embedding e)
+  (h_dense : ∀x, x ∈ closure (e ' univ))
+  {f : β → γ}
+  (h_f : uniform_continuous f)
+
+include h_dense h_e
+
+private lemma vmap_e_neq_empty {a : α} : vmap e (nhds a) ≠ ⊥ :=
+forall_sets_neq_empty_iff_neq_bot.mp $
+have neq_bot : nhds a ⊓ principal (e ' univ) ≠ ⊥,
+  by simp [closure_eq_nhds] at h_dense; exact h_dense a,
+take s ⟨t, ht, (hs : vimage e t ⊆ s)⟩, 
+have h₁ : t ∈ (nhds a ⊓ principal (e ' univ)).sets,
+  from @mem_inf_sets_of_left α (nhds a) (principal (e ' univ)) t ht,
+have h₂ : e ' univ ∈ (nhds a ⊓ principal (e ' univ)).sets,
+  from @mem_inf_sets_of_right α (nhds a) (principal (e ' univ)) _ $ subset.refl _,
+have t ∩ e ' univ ∈ (nhds a ⊓ principal (e ' univ)).sets,
+  from @inter_mem_sets α (nhds a ⊓ principal (e ' univ)) _ _ h₁ h₂,
+let ⟨x, ⟨hx₁, y, hy, y_eq⟩⟩ := inhabited_of_mem_sets neq_bot this in
+ne_empty_of_mem $ hs $ show e y ∈ t, from y_eq.symm ▸ hx₁
+
+include h_f
+
+lemma uniformly_extend_spec [nonempty γ] [cγ : complete γ] {a : α} :
+  map f (vmap e (nhds a)) ≤ nhds (uniformly_extend e f a) :=
+have cauchy (nhds a), from cauchy_nhds,
+have cauchy (vmap e (nhds a)), from
+  cauchy_vmap (le_of_eq h_e.right) this $ vmap_e_neq_empty h_e h_dense,
+have cauchy (map f (vmap e (nhds a))), from
+  cauchy_map h_f this,
+have ∃c, map f (vmap e (nhds a)) ≤ nhds c,
+  from cγ _ this,
+classical.epsilon_spec this
+
+lemma uniformly_extend_unique [nonempty γ] [cγ : complete γ] [sγ : separated γ] {a : α} {c : γ}
+   (h : map f (vmap e (nhds a)) ≤ nhds c) : uniformly_extend e f a = c :=
+have map f (vmap e (nhds a)) ≤ nhds (uniformly_extend e f a) ⊓ nhds c,
+  from le_inf (@uniformly_extend_spec α β γ _ _ _ _ h_e h_dense f h_f _ cγ a) h,
+  -- why does the elaborator not find cγ?
+have nhds (uniformly_extend e f a) ⊓ nhds c ≠ ⊥,
+  from neq_bot_of_le_neq_bot (by simp [map_eq_bot_iff]; exact vmap_e_neq_empty h_e h_dense) this,
+@eq_of_nhds_neq_bot _ _ (@separated_t2 _ _ sγ) _ _ this
+
+lemma uniform_extend_of_emb [nonempty γ] [cγ : complete γ] [sγ : separated γ] {b : β} :
+  uniformly_extend e f (e b) = f b :=
+@uniformly_extend_unique α β γ _ _ _ e h_e h_dense f h_f _ cγ sγ (e b) (f b) $
+have vmap e (nhds (e b)) ≤ nhds b,
+  begin
+    simp [nhds_eq_uniformity],
+    rw [vmap_lift'_eq],
+    simp [vimage, function.comp],
+    rw [-h_e.right]
+  end,
+calc map f (vmap e (nhds (e b))) ≤ map f (nhds b) : map_mono this
+  ... ≤ nhds (f b) : _ 
+
+
+end uniform_extension
 end uniform_space
 end
 

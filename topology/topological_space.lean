@@ -296,6 +296,10 @@ lemma mem_nhds_sets_iff {a : α} {s : set α} :
  s ∈ (nhds a)^.sets ↔ ∃t⊆s, open' t ∧ a ∈ t := 
 by simp [nhds_sets]
 
+lemma mem_nhds_sets {a : α} {s : set α} (hs : open' s) (ha : a ∈ s) :
+ s ∈ (nhds a)^.sets := 
+by simp [nhds_sets]; exact ⟨s, hs, subset.refl _, ha⟩
+
 lemma return_le_nhds : return ≤ (nhds : α → filter α) :=
 take a, le_infi $ take s, le_infi $ take ⟨h₁, _⟩, principal_mono^.mpr $ by simp [h₁]
 
@@ -362,6 +366,29 @@ open_iff_nhds^.mpr $ take a, assume h : a ∉ (⋃i, f i),
   end
 
 end locally_finite
+
+section separation
+
+@[class]
+def t1_space (α : Type u) [topological_space α] :=
+∀x, closed ({x} : set α)
+
+@[class]
+def t2_space (α : Type u) [topological_space α] :=
+∀x y, x ≠ y → ∃u v : set α, open' u ∧ open' v ∧ x ∈ u ∧ y ∈ v ∧ u ∩ v = ∅
+
+lemma eq_of_nhds_neq_bot [ht : t2_space α] {x y : α} (h : nhds x ⊓ nhds y ≠ ⊥) : x = y :=
+classical.by_contradiction $ suppose x ≠ y, 
+let ⟨u, v, hu, hv, hx, hy, huv⟩ := ht x y this in
+have h₁ : u ∈ (nhds x ⊓ nhds y).sets,
+  from @mem_inf_sets_of_left α (nhds x) (nhds y) _ $ mem_nhds_sets hu hx,
+have h₂ : v ∈ (nhds x ⊓ nhds y).sets,
+  from @mem_inf_sets_of_right α (nhds x) (nhds y) _ $ mem_nhds_sets hv hy,
+have u ∩ v ∈ (nhds x ⊓ nhds y).sets,
+  from @inter_mem_sets α (nhds x ⊓ nhds y) _ _ h₁ h₂,
+h $ empty_in_sets_eq_bot.mp $ huv ▸ this
+
+end separation
 
 end topological_space
 

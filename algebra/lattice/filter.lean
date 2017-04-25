@@ -22,11 +22,11 @@ section monad
 variables {α β γ : Type u} {m : Type u → Type v} [monad m]
 
 theorem map_bind (x : m α) {g : α → m β} {f : β → γ} : f <$> (x >>= g) = (x >>= λa, f <$> g a) :=
-show monad.map f (monad.bind x g) = monad.bind x (λa, monad.map f (g a)),
+show f <$> (bind x g) = bind x (λa, f <$> (g a)),
   by rw [-monad.bind_pure_comp_eq_map]; simp [monad.bind_pure_comp_eq_map, monad.bind_assoc]
 
 theorem seq_bind_eq (x : m α) {g : β → m γ} {f : α → β} : (f <$> x) >>= g = (x >>= g ∘ f) :=
-show monad.bind (monad.map f x) g = monad.bind x (g ∘ f),
+show bind (f <$> x) g = bind x (g ∘ f),
 by rw [-monad.bind_pure_comp_eq_map, monad.bind_assoc]; simp [monad.pure_bind]
 
 theorem seq_eq_bind_map {x : m α} {f : m (α → β)} : f <*> x = (f >>= (<$> x)) :=
@@ -78,7 +78,7 @@ rfl
 lemma mem_seq_iff {f : set (α → β)} {s : set α} {b : β} :
   b ∈ (f <*> s) ↔ (∃(f' : α → β), ∃a ∈ s, f' ∈ f ∧ b = f' a) :=
 begin
-  simp [seq_eq_bind_map, bind],
+  simp [seq_eq_bind_map],
   apply exists_congr,
   intro f',
   exact ⟨take ⟨hf', a, ha, h_eq⟩, ⟨a, h_eq^.symm, ha, hf'⟩,
@@ -386,7 +386,7 @@ instance complete_lattice_filter : complete_lattice (filter α) :=
   inf_le_left   := take f g s h, ⟨s, h, univ, univ_mem_sets, inter_subset_left _ _⟩,
   inf_le_right  := take f g s h, ⟨univ, univ_mem_sets, s, h, inter_subset_right _ _⟩,
   top           := principal univ,
-  le_top        := take a, by simp [top]; apply univ_mem_sets,
+  le_top        := take a, show a ≤ principal univ, by simp [univ_mem_sets],
   bot           := principal ∅,
   bot_le        := take a, show a^.sets ⊆ {x | ∅ ⊆ x}, by simp; apply subset_univ,
   Sup           := Sup,
@@ -579,7 +579,7 @@ lemma sup_principal {s t : set α} : principal s ⊔ principal t = principal (s 
 filter_eq $ set.ext $ by simp [union_subset_iff]
 
 @[simp]
-lemma supr_principal {ι : Sort w} {s : ι → set α} : (⨆x, principal (s x)) = principal (Union s) :=
+lemma supr_principal {ι : Sort w} {s : ι → set α} : (⨆x, principal (s x)) = principal (⋃i, s i) :=
 filter_eq $ set.ext $ take x, by simp [supr_sets_eq]; exact (@supr_le_iff (set α) _ _ _ _)^.symm
 
 lemma principal_univ : principal (univ : set α) = top :=
@@ -663,7 +663,7 @@ calc map m (⨅i∈s, f i) = map m (⨅i:{i // i ∈ s}, f i.val) : by simp [inf
 
 lemma mem_bind_sets {β : Type u} {s : set β} {f : filter α} {m : α → filter β} :
   s ∈ (f >>= m)^.sets ↔ (∃t ∈ f^.sets, ∀x ∈ t, s ∈ (m x)^.sets) :=
-calc s ∈ (f >>= m)^.sets ↔ {a | s ∈ (m a)^.sets} ∈ f^.sets : by simp [bind]
+calc s ∈ (f >>= m)^.sets ↔ {a | s ∈ (m a)^.sets} ∈ f^.sets : by simp
                      ... ↔ (∃t ∈ f^.sets, t ⊆ {a | s ∈ (m a)^.sets}) : exists_sets_subset_iff^.symm
                      ... ↔ (∃t ∈ f^.sets, ∀x ∈ t, s ∈ (m x)^.sets) : iff.refl _
 
@@ -673,7 +673,7 @@ take x h₂, f^.upwards_sets (inter_mem_sets h₁ h₂) $ take s ⟨gh', h'⟩, 
 
 lemma bind_sup {β : Type u} {f g : filter α} {h : α → filter β} :
   (f ⊔ g) >>= h = (f >>= h) ⊔ (g >>= h) :=
-by simp [bind]
+by simp
 
 lemma bind_mono2 {β : Type u} {f g : filter α} {h : α → filter β} (h₁ : f ≤ g) :
   f >>= h ≤ g >>= h :=
@@ -1026,12 +1026,13 @@ lemma prod_mono {f₁ f₂ : filter α} {g₁ g₂ : filter β} (hf : f₁ ≤ f
   filter.prod f₁ g₁ ≤ filter.prod f₂ g₂ :=
 lift_mono hf $ take s, lift'_mono hg $ le_refl _
 
-lemma prod_comm {f : filter α} {g : filter β} : filter.prod f g = map (λp:β×α, (p.2, p.1)) (filter.prod g f) :=
+lemma prod_comm {f : filter α} {g : filter β} :
+  filter.prod f g = map (λp:β×α, (p.2, p.1)) (filter.prod g f) :=
 eq.symm $ calc map (λp:β×α, (p.2, p.1)) (filter.prod g f) =
         (g^.lift $ λt, map (λp:β×α, (p.2, p.1)) (f^.lift' $ λs, set.prod t s)) :
     map_lift_eq $ take a b h, lift'_mono (le_refl f) (take t, set.prod_mono h (subset.refl t))
   ... = (g^.lift $ λt, f^.lift' $ λs, image (λp:β×α, (p.2, p.1)) (set.prod t s)) :
-    congr_arg g^.lift $ funext $ take s, map_lift'_eq $ take a b h, set.prod_mono (subset.refl s) h
+    congr_arg (filter.lift g) $ funext $ take s, map_lift'_eq $ take a b h, set.prod_mono (subset.refl s) h
   ... = (g^.lift $ λt, f^.lift' $ λs, set.prod s t) : by simp [set.image_swap_prod]
   ... = filter.prod f g : lift_comm
 

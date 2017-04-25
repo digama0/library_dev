@@ -95,7 +95,7 @@ have s ∈ (uniformity^.lift' (λt:set (α×α), comp_rel t t)).sets,
 (mem_lift'_iff $ monotone_comp_rel monotone_id monotone_id).mp this
 
 lemma uniformity_le_symm : uniformity ≤ map (@prod.swap α α) uniformity :=
-calc uniformity = id <$> uniformity : (monad.id_map _)^.symm
+calc uniformity = id <$> uniformity : (functor.id_map _)^.symm
   ... = (prod.swap.{u u} ∘ prod.swap) <$> uniformity :
     congr_arg (λf : (α×α)→(α×α), f <$> uniformity) (by apply funext; intro x; cases x; refl)
   ... = (map prod.swap ∘ map prod.swap) uniformity :

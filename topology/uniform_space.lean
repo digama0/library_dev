@@ -8,12 +8,26 @@ Theory of uniform spaces.
 import algebra.lattice.filter .topological_space .continuity
 open set lattice filter
 
+set_option eqn_compiler.zeta true
+
 attribute [trans] subset.trans
 
 universes u v w x
 
 section
 variables {α : Type u} {β : Type v} {γ : Type w}
+
+lemma vmap_map {f : filter α} {m : α → β} (h : ∀ x y, m x = m y → x = y) :
+  vmap m (map m f) = f :=
+have ∀s, vimage m (image m s) = s,
+  from take s, vimage_image_eq h,
+le_antisymm
+  (take s hs, ⟨
+    image m s,
+    f.upwards_sets hs $ by simp [this, subset.refl],
+    by simp [this, subset.refl]⟩)
+  (take s ⟨t, (h₁ : vimage m t ∈ f.sets), (h₂ : vimage m t ⊆ s)⟩,
+    f.upwards_sets h₁ h₂)
 
 def id_rel {α : Type u} := {p : α × α | p.1 = p.2}
 
@@ -226,9 +240,31 @@ begin
   { intro t, exact monotone_prod monotone_vimage monotone_const }
 end
 
+lemma nhdset_of_mem_uniformity {d s : set (α×α)} (hd : d ∈ (@uniformity α _).sets) :
+  ∃(t : set (α×α)), open' t ∧ s ⊆ t ∧ t ⊆ {p | ∃x y, (p.1, x) ∈ d ∧ (x, y) ∈ s ∧ (y, p.2) ∈ d} :=
+let cl_d := {p:α×α | ∃x y, (p.1, x) ∈ d ∧ (x, y) ∈ s ∧ (y, p.2) ∈ d} in
+have ∀p ∈ s, ∃t ⊆ cl_d, open' t ∧ p ∈ t, from
+  take ⟨x, y⟩ hp, mem_nhds_sets_iff.mp $
+  show cl_d ∈ (nhds (x, y)).sets,
+  begin
+    rw [nhds_eq_uniformity_prod, mem_lift'_iff],
+    exact ⟨d, hd, take ⟨a, b⟩ ⟨ha, hb⟩, ⟨x, y, ha, hp, hb⟩⟩,
+    exact monotone_prod monotone_vimage monotone_vimage
+  end,
+have ∃t:(Π(p:α×α) (h:p ∈ s), set (α×α)),
+    ∀p, ∀h:p ∈ s, t p h ⊆ cl_d ∧ open' (t p h) ∧ p ∈ t p h,
+  by simp [classical.skolem] at this; simp; assumption,
+match this with
+| ⟨t, ht⟩ :=
+  ⟨(⋃ p:α×α, ⋃ h : p ∈ s, t p h : set (α×α)),
+    open_Union $ take (p:α×α), open_Union $ take hp, (ht p hp).right.left,
+    take ⟨a, b⟩ hp, begin simp; exact ⟨a, b, hp, (ht (a,b) hp).right.right⟩ end,
+    Union_subset $ take p, Union_subset $ take hp, (ht p hp).left⟩
+end
+
 lemma closure_eq_inter_uniformity {t : set (α×α)} :
   closure t = (⋂ d∈(@uniformity α _).sets, comp_rel d (comp_rel t d)) :=
-set.ext $ take ⟨a, b⟩, 
+set.ext $ take ⟨a, b⟩,
 calc (a, b) ∈ closure t ↔ (nhds (a, b) ⊓ principal t ≠ ⊥) : by simp [closure_eq_nhds]
   ... ↔ (((@prod.swap α α) <$> uniformity).lift'
       (λ (s : set (α × α)), set.prod {x : α | (x, a) ∈ s} {y : α | (b, y) ∈ s}) ⊓ principal t ≠ ⊥) :
@@ -262,6 +298,13 @@ le_antisymm
       lift'_mono' (by intros s hs; rw [closure_eq_inter_uniformity]; exact bInter_subset_of_mem hs)
     ... ≤ uniformity : trans_le_uniformity3)
 
+lemma uniformity_eq_uniformity_interior : (@uniformity α _) = uniformity.lift' interior :=
+le_antisymm
+  (le_infi $ take s, le_infi $ take hs,
+
+    _)
+  (take s hs, (uniformity.lift' interior).upwards_sets (mem_lift' hs) interior_subset)
+
 /- uniform continuity -/
 
 definition uniform_continuous [uniform_space β] (f : α → β) :=
@@ -274,6 +317,21 @@ filter.vmap (λx:α×α, (f x.1, f x.2)) uniformity = uniformity
 lemma uniform_continuous_of_embedding [uniform_space β] {f : α → β}
   (hf : uniform_embedding f) : uniform_continuous f :=
 by simp [uniform_continuous, hf.right.symm]; exact take s hs, ⟨s, hs, subset.refl _⟩
+
+lemma continuous_of_uniform [uniform_space β] {f : α → β}
+  (hf : uniform_continuous f) : continuous f :=
+continuous_iff_towards.mpr $ take a,
+calc map f (nhds a) ≤
+    (map (λp:α×α, (f p.1, f p.2)) uniformity).lift' (λs:set (β×β), {y | (f a, y) ∈ s}) :
+  begin
+    rw [nhds_eq_uniformity, map_lift'_eq, map_lift'_eq2],
+    exact (lift'_mono' $ take s hs b ⟨a', (ha' : (_, a') ∈ s), a'_eq⟩,
+      ⟨(a, a'), ha', show (f a, f a') = (f a, b), from a'_eq ▸ rfl⟩),
+    exact monotone_vimage,
+    exact monotone_vimage
+  end
+  ... ≤ nhds (f a) :
+    by rw [nhds_eq_uniformity]; exact lift'_mono hf (le_refl _)
 
 /- cauchy filters -/
 definition cauchy (f : filter α) := f ≠ ⊥ ∧ filter.prod f f ≤ uniformity
@@ -289,7 +347,7 @@ lemma cauchy_nhds {a : α} : cauchy (nhds a) :=
     ... ≤ uniformity^.lift' (λs:set (α×α), comp_rel s s) :
       le_infi $ take s, le_infi $ take hs,
       infi_le_of_le s $ infi_le_of_le hs $ infi_le_of_le s $ infi_le_of_le hs $
-      principal_mono.mpr $ 
+      principal_mono.mpr $
       take ⟨x, y⟩ ⟨(hx : (x, a) ∈ s), (hy : (a, y) ∈ s)⟩, ⟨a, hx, hy⟩
     ... ≤ uniformity : trans_le_uniformity⟩
 
@@ -315,7 +373,7 @@ calc f ≤ f.lift' (λs:set α, {y | x ∈ closure s ∧ y ∈ closure s}) :
     end
   ... ≤ f.lift' (λs:set α, {y | (x, y) ∈ closure (set.prod s s)}) :
     by simp [closure_prod_eq]; exact le_refl _
-  ... = (filter.prod f f).lift' (λs:set (α×α), {y | (x, y) ∈ closure s}) : 
+  ... = (filter.prod f f).lift' (λs:set (α×α), {y | (x, y) ∈ closure s}) :
   begin
     rw [prod_same_eq],
     rw [lift'_lift'_assoc],
@@ -363,7 +421,7 @@ protected def separation_rel (α : Type u) [uniform_space α] :=
 
 lemma separated_equiv : equivalence (λx y, (x, y) ∈ separation_rel α) :=
 ⟨take x, take s, refl_mem_uniformity,
-  take x y, take h (s : set (α×α)) hs, 
+  take x y, take h (s : set (α×α)) hs,
     have vimage prod.swap s ∈ (@uniformity α _).sets,
       from symm_le_uniformity hs,
     h _ this,
@@ -396,7 +454,7 @@ have {x | (x, y) ∈ d'} ∈ (nhds y).sets,
 let ⟨v, hv₁, hv₂, hv₃⟩ := mem_nhds_sets_iff.mp this in
 have u ∩ v = ∅, from
   eq_empty_of_subset_empty $
-  take z ⟨(h₁ : z ∈ u), (h₂ : z ∈ v)⟩, 
+  take z ⟨(h₁ : z ∈ u), (h₂ : z ∈ v)⟩,
   have (x, y) ∈ comp_rel d' d', from ⟨z, hu₁ h₁, hv₁ h₂⟩,
   hxy $ hd'd' this,
 ⟨u, v, hu₂, hv₂, hu₃, hv₃, this⟩
@@ -435,11 +493,11 @@ have vmap m g ≠ ⊥, from
   let ⟨t', ht', ht_mem⟩ := (mem_lift_iff mg₁).mp ht in
   let ⟨t'', ht'', ht'_sub⟩ := (mem_lift'_iff mg₂).mp ht_mem in
   let ⟨x, (hx : x ∈ t'')⟩ := inhabited_of_mem_sets hf.left ht'' in
-  have h₀ : nhds x ⊓ principal (m ' univ) ≠ ⊥, 
+  have h₀ : nhds x ⊓ principal (m ' univ) ≠ ⊥,
     by simp [closure_eq_nhds] at dense; exact dense x,
-  have h₁ : {y | (x, y) ∈ t'} ∈ (nhds x ⊓ principal (m ' univ)).sets, 
+  have h₁ : {y | (x, y) ∈ t'} ∈ (nhds x ⊓ principal (m ' univ)).sets,
     from @mem_inf_sets_of_left α (nhds x) (principal (m ' univ)) _ $ mem_nhds_left ht',
-  have h₂ : m ' univ ∈ (nhds x ⊓ principal (m ' univ)).sets, 
+  have h₂ : m ' univ ∈ (nhds x ⊓ principal (m ' univ)).sets,
     from @mem_inf_sets_of_right α (nhds x) (principal (m ' univ)) _ $ subset.refl _,
   have {y | (x, y) ∈ t'} ∩ m ' univ ∈ (nhds x ⊓ principal (m ' univ)).sets,
     from @inter_mem_sets α (nhds x ⊓ principal (m ' univ)) _ _ h₁ h₂,
@@ -449,7 +507,7 @@ have vmap m g ≠ ⊥, from
 
 have cauchy_g : cauchy g, from ⟨
   (lift_neq_bot_iff mg₁).mpr $ take s hs,
-    (lift'_neq_bot_iff mg₂).mpr $ take t ht, 
+    (lift'_neq_bot_iff mg₂).mpr $ take t ht,
     let ⟨x, hx⟩ := inhabited_of_mem_sets hf.left ht in
     ne_empty_iff_exists_mem.mpr ⟨x, x, hx, refl_mem_uniformity hs⟩,
   take s hs,
@@ -508,7 +566,7 @@ instance : uniform_space (quotient (separation_setoid α)) :=
       from take a, refl_mem_uniformity hs,
     h ▸ quotient.induction_on a this,
   symm  :=
-    have prod.swap ∘ (λ (p : α × α), (⟦p.fst⟧, ⟦p.snd⟧)) = 
+    have prod.swap ∘ (λ (p : α × α), (⟦p.fst⟧, ⟦p.snd⟧)) =
       (λ (p : α × α), (⟦p.fst⟧, ⟦p.snd⟧)) ∘ prod.swap,
       from funext $ take ⟨a, b⟩, rfl,
     calc (map prod.swap ∘ map (λp:(α×α), (⟦p.1⟧, ⟦p.2⟧))) uniformity =
@@ -518,7 +576,7 @@ instance : uniform_space (quotient (separation_setoid α)) :=
           uniformity.lift' ((λs, comp_rel s s) ∘ image (λ (p : α × α), (⟦p.fst⟧, ⟦p.snd⟧))) :
       map_lift'_eq2 $ monotone_comp_rel monotone_id monotone_id
     ... ≤ uniformity.lift' (image (λ (p : α × α), (⟦p.fst⟧, ⟦p.snd⟧)) ∘ (λs:set (α×α), comp_rel s (comp_rel s s))) :
-      lift'_mono' $ take s hs ⟨a, b⟩ ⟨c, ⟨⟨a₁, a₂⟩, ha, a_eq⟩, ⟨⟨b₁, b₂⟩, hb, b_eq⟩⟩, 
+      lift'_mono' $ take s hs ⟨a, b⟩ ⟨c, ⟨⟨a₁, a₂⟩, ha, a_eq⟩, ⟨⟨b₁, b₂⟩, hb, b_eq⟩⟩,
       begin
         simp at a_eq,
         simp at b_eq,
@@ -564,7 +622,7 @@ private lemma vmap_e_neq_empty {a : α} : vmap e (nhds a) ≠ ⊥ :=
 forall_sets_neq_empty_iff_neq_bot.mp $
 have neq_bot : nhds a ⊓ principal (e ' univ) ≠ ⊥,
   by simp [closure_eq_nhds] at h_dense; exact h_dense a,
-take s ⟨t, ht, (hs : vimage e t ⊆ s)⟩, 
+take s ⟨t, ht, (hs : vimage e t ⊆ s)⟩,
 have h₁ : t ∈ (nhds a ⊓ principal (e ' univ)).sets,
   from @mem_inf_sets_of_left α (nhds a) (principal (e ' univ)) t ht,
 have h₂ : e ' univ ∈ (nhds a ⊓ principal (e ' univ)).sets,
@@ -604,17 +662,24 @@ have vmap e (nhds (e b)) ≤ nhds b,
     simp [nhds_eq_uniformity],
     rw [vmap_lift'_eq],
     simp [vimage, function.comp],
-    rw [-h_e.right]
+    rw [-h_e.right],
+    rw [vmap_lift'_eq2],
+    exact le_refl _,
+    exact monotone_vimage,
+    exact monotone_vimage
   end,
 calc map f (vmap e (nhds (e b))) ≤ map f (nhds b) : map_mono this
-  ... ≤ nhds (f b) : _ 
+  ... ≤ nhds (f b) : continuous_iff_towards.mp (continuous_of_uniform h_f) b
 
+lemma uniform_continuous_uniformly_extend [nonempty γ] [cγ : complete γ] [sγ : separated γ] :
+  uniform_continuous (uniformly_extend e f) :=
+_
 
 end uniform_extension
 end uniform_space
 end
 
-/-- Space of Cauchy filters 
+/-- Space of Cauchy filters
 
 This is essentially the completion of a uniform space. The embeddings are the neighbourhood filters.
 This space is not minimal, the separated uniform space (i.e. quotiented on the intersection of all
@@ -738,8 +803,6 @@ begin
         from ⟨mem_image_of_mem _ $ mem_univ y, hy⟩,
       ne_empty_of_mem this)
 end
-
-set_option eqn_compiler.zeta true
 
 instance : complete (Cauchy α) :=
 complete_extension

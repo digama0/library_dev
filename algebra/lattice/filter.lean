@@ -789,6 +789,14 @@ begin
     take ⟨t₂, ht, t₁, hs, ht₁⟩, ⟨t₁, hs, t₂, ht, ht₁⟩⟩
 end
 
+lemma vmap_lift_eq2 {m : β → α} {g : set β → filter γ} (hg : monotone g) :
+  (vmap m f)^.lift g = f^.lift (g ∘ vimage m) :=
+le_antisymm
+  (le_infi $ take s, le_infi $ take hs,
+    infi_le_of_le (vimage m s) $ infi_le _ ⟨s, hs, subset.refl _⟩)
+  (le_infi $ take s, le_infi $ take ⟨s', hs', (h_sub : vimage m s' ⊆ s)⟩,
+    infi_le_of_le s' $ infi_le_of_le hs' $ hg h_sub)
+
 lemma map_lift_eq2 {g : set β → filter γ} {m : α → β} (hg : monotone g) :
   (map m f)^.lift g = f^.lift (g ∘ image m) :=
 le_antisymm
@@ -840,7 +848,7 @@ le_antisymm
   (infi_le_of_le s $ infi_le _ $ subset.refl _)
   (le_infi $ take t, le_infi $ take hi, hg hi)
 
-lemma monotone_lift [weak_order γ] {f : γ → filter α} {g : γ → set α → filter β} 
+lemma monotone_lift [weak_order γ] {f : γ → filter α} {g : γ → set α → filter β}
   (hf : monotone f) (hg : monotone g) : monotone (λc, (f c)^.lift (g c)) :=
 take a b h, lift_mono (hf h) (hg h)
 
@@ -850,7 +858,7 @@ classical.by_cases
     calc f^.lift g ≠ ⊥ ↔ (⨅s : { s // s ∈ f^.sets}, g s.val) ≠ ⊥ : by simp [filter.lift, infi_subtype]
       ... ↔ (∀s:{ s // s ∈ f^.sets}, g s.val ≠ ⊥) :
         infi_neq_bot_iff_of_directed hn
-          (take ⟨a, ha⟩ ⟨b, hb⟩, ⟨⟨a ∩ b, inter_mem_sets ha hb⟩, 
+          (take ⟨a, ha⟩ ⟨b, hb⟩, ⟨⟨a ∩ b, inter_mem_sets ha hb⟩,
             hm $ inter_subset_left _ _, hm $ inter_subset_right _ _⟩)
       ... ↔ (∀s∈f.sets, g s ≠ ⊥) : ⟨take h s hs, h ⟨s, hs⟩, take h ⟨s, hs⟩, h s hs⟩)
   (assume hn : ¬ nonempty β,
@@ -898,6 +906,10 @@ calc vmap m (f^.lift' h) = f^.lift (vmap m ∘ principal ∘ h) :
     vmap_lift_eq $ monotone_comp hh monotone_principal
   ... = f^.lift' (vimage m ∘ h) : by simp [function.comp, filter.lift']
 
+lemma vmap_lift'_eq2 {m : β → α} {g : set β → set γ} (hg : monotone g) :
+  (vmap m f)^.lift' g = f^.lift' (g ∘ vimage m) :=
+vmap_lift_eq2 $ monotone_comp hg monotone_principal
+
 lemma lift'_principal {s : set α} (hh : monotone h) :
   (principal s)^.lift' h = principal (h s) :=
 lift_principal $ monotone_comp hh monotone_principal
@@ -906,7 +918,7 @@ lemma principal_le_lift' {t : set β} (hh : ∀s∈f^.sets, t ⊆ h s) :
   principal t ≤ f^.lift' h :=
 le_infi $ take s, le_infi $ take hs, principal_mono^.mpr (hh s hs)
 
-lemma monotone_lift' [weak_order γ] {f : γ → filter α} {g : γ → set α → set β} 
+lemma monotone_lift' [weak_order γ] {f : γ → filter α} {g : γ → set α → set β}
   (hf : monotone f) (hg : monotone g) : monotone (λc, (f c)^.lift' (g c)) :=
 take a b h, lift'_mono (hf h) (hg h)
 
@@ -1023,7 +1035,7 @@ eq.symm $ calc map (λp:β×α, (p.2, p.1)) (filter.prod g f) =
   ... = (g^.lift $ λt, f^.lift' $ λs, set.prod s t) : by simp [set.image_swap_prod]
   ... = filter.prod f g : lift_comm
 
-lemma prod_lift_lift {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x} 
+lemma prod_lift_lift {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x}
   {f₁ : filter α₁} {f₂ : filter α₂} {g₁ : set α₁ → filter β₁} {g₂ : set α₂ → filter β₂}
   (hg₁ : monotone g₁) (hg₂ : monotone g₂) :
   filter.prod (f₁.lift g₁) (f₂.lift g₂) = f₁.lift (λs, f₂.lift (λt, filter.prod (g₁ s) (g₂ t))) :=
@@ -1038,7 +1050,7 @@ begin
   exact hg₁
 end
 
-lemma prod_lift'_lift' {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x} 
+lemma prod_lift'_lift' {α₁ : Type u} {α₂ : Type v} {β₁ : Type w} {β₂ : Type x}
   {f₁ : filter α₁} {f₂ : filter α₂} {g₁ : set α₁ → set β₁} {g₂ : set α₂ → set β₂}
   (hg₁ : monotone g₁) (hg₂ : monotone g₂) :
   filter.prod (f₁.lift' g₁) (f₂.lift' g₂) = f₁.lift (λs, f₂.lift' (λt, set.prod (g₁ s) (g₂ t))) :=
@@ -1092,12 +1104,12 @@ end
 lemma prod_inf_prod {f₁ f₂ : filter α} {g₁ g₂ : filter β} :
   filter.prod f₁ g₁ ⊓ filter.prod f₂ g₂ = filter.prod (f₁ ⊓ f₂) (g₁ ⊓ g₂) :=
 le_antisymm
-  (le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht, 
+  (le_infi $ take s, le_infi $ take hs, le_infi $ take t, le_infi $ take ht,
   begin
     revert s hs t ht,
     simp,
     exact take s ⟨s₁, hs₁, s₂, hs₂, hs⟩ t ⟨t₁, ht₁, t₂, ht₂, ht⟩,
-      ⟨set.prod s₁ t₁, prod_mem_prod hs₁ ht₁, set.prod s₂ t₂, prod_mem_prod hs₂ ht₂, 
+      ⟨set.prod s₁ t₁, prod_mem_prod hs₁ ht₁, set.prod s₂ t₂, prod_mem_prod hs₂ ht₂,
       by rw [set.prod_inter_prod]; exact set.prod_mono hs ht⟩
   end)
   (le_inf (prod_mono inf_le_left inf_le_left) (prod_mono inf_le_right inf_le_right))
@@ -1122,7 +1134,7 @@ calc filter.prod f g ≠ ⊥ ↔ (∀s∈f.sets, g.lift' (set.prod s) ≠ ⊥) :
   end
   ... ↔ (∀s∈f.sets, s ≠ ∅) ∧ (∀t∈g.sets, t ≠ ∅) :
     ⟨take h, ⟨take s hs, (h s hs univ univ_mem_sets).left,
-        take t ht, (h univ univ_mem_sets t ht).right⟩, 
+        take t ht, (h univ univ_mem_sets t ht).right⟩,
       take ⟨h₁, h₂⟩ s hs t ht, ⟨h₁ s hs, h₂ t ht⟩⟩
   ... ↔ _ : by simp [forall_sets_neq_empty_iff_neq_bot]
 
@@ -1132,7 +1144,7 @@ begin
   delta filter.prod,
   rw [lift_principal, lift'_principal],
   exact set.monotone_prod monotone_const monotone_id,
-  exact (monotone_lift' monotone_const $ monotone_lam $ 
+  exact (monotone_lift' monotone_const $ monotone_lam $
     take s, set.monotone_prod monotone_id monotone_const)
 end
 

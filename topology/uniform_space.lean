@@ -686,9 +686,8 @@ let ⟨s, hs, hs_comp⟩ := (mem_lift'_iff $
   monotone_comp_rel monotone_id $ monotone_comp_rel monotone_id monotone_id).mp (comp_le_uniformity3 hd) in
 have vimage (λp:β×β, (f p.1, f p.2)) s ∈ (@uniformity β _).sets,
   from h_f hs,
-have uniform_continuous (e : β → α), /- e -' U_β = U_α -/
-  from uniform_continuous_of_embedding h_e,
 begin
+  rw [h_e.right.symm, uniformity_eq_uniformity_interior] at this,
   simp
 end
 

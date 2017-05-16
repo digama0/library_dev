@@ -66,7 +66,7 @@ begin assert general : ∀m, P n m,
 
 /-
 Remark: we use 'local attributes' because in the end of the file
-we show not is a comm_semiring, and we will automatically inherit
+we show nat is a comm_semiring, and we will automatically inherit
 the associated [simp] lemmas from algebra
 -/
 
@@ -87,9 +87,6 @@ local attribute [simp] add_one
 theorem one_add (n : ℕ) : 1 + n = succ n := by simp
 
 local attribute [simp] one_add
-
-theorem succ_eq_add_one (n : ℕ) : succ n = n + 1 :=
-rfl
 
 end nat
 

@@ -5,7 +5,7 @@ Authors: Parikshit Khanna, Jeremy Avigad, Leonardo de Moura, Floris van Doorn
 
 Basic properties of lists.
 -/
-import ...logic.basic ..nat.basic
+import logic.basic ..nat.basic
 open function nat
 
 namespace list
@@ -140,7 +140,7 @@ list.rec_on l
    show find a (b::l) ≤ length (b::l), from
      decidable.by_cases
        (suppose a = b, begin simp [this, find_cons_of_eq l (eq.refl b)], apply zero_le end)
-       (suppose a ≠ b, begin simp [this, find_cons_of_ne l this], apply succ_le_succ ih end))
+       (suppose a ≠ b, begin rw [find_cons_of_ne l this], apply succ_le_succ ih end))
 
 lemma not_mem_of_find_eq_length : ∀ {a : α} {l : list α}, find a l = length l → a ∉ l
 | a []        := by simp

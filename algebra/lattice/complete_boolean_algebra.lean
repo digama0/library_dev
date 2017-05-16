@@ -5,7 +5,7 @@ Authors: Johannes Hölzl
 
 Theory of complete Boolean algebras.
 -/
-import .complete_lattice .boolean_algebra
+import .complete_lattice .boolean_algebra data.set.basic
 
 set_option old_structure_cmd true
 
@@ -36,9 +36,9 @@ end complete_distrib_lattice
 instance [d : complete_distrib_lattice α] : bounded_distrib_lattice α :=
 { d with 
   le_sup_inf := take x y z,
-    calc (x ⊔ y) ⊓ (x ⊔ z) ≤ (⨅ b ∈ ({z, y} : set α), x ⊔ b) : by simp
+    calc (x ⊔ y) ⊓ (x ⊔ z) ≤ (⨅ b ∈ ({z, y} : set α), x ⊔ b) : by rw insert_of_has_insert; simp
       ... = x ⊔ Inf {z, y} : sup_Inf_eq^.symm
-      ... = x ⊔ y ⊓ z : by simp }
+      ... = x ⊔ y ⊓ z : by rw insert_of_has_insert; simp }
 
 class complete_boolean_algebra α extends boolean_algebra α, complete_distrib_lattice α
 

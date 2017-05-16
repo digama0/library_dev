@@ -389,7 +389,7 @@ theorem singleton_ne_empty (a : α) : ({a} : set α) ≠ ∅ := insert_ne_empty 
 
 @[simp]
 lemma singleton_subset_iff {a : α} {s : set α} : {a} ⊆ s ↔ a ∈ s :=
-by simp [subset, set.subset, forall_eq_elim]
+⟨λh, h (by simp), λh b e, by simp at e; simph⟩ 
 
 /- separation -/
 
@@ -906,7 +906,7 @@ by simp
 instance : complete_boolean_algebra (set α) :=
 { set.lattice_set with
   neg                 := compl,
-  sub                 := sdiff,
+  sub                 := (\),
   inf_neg_eq_bot      := take s, ext $ take x, ⟨take ⟨h, nh⟩, nh h, false.elim⟩,
   sup_neg_eq_top      := take s, ext $ take x, ⟨take h, trivial, take _, classical.em $ x ∈ s⟩,
   le_sup_inf          := distrib_lattice.le_sup_inf,
@@ -918,7 +918,7 @@ instance : complete_boolean_algebra (set α) :=
         (classical.em $ x ∈ s),
   inf_Sup_le_supr_inf := take s t x, show x ∈ s ∩ (⋃₀ t) → x ∈ (⋃ b ∈ t, s ∩ b), by simp; exact id }
 
-lemma union_sdiff_same {a b : set α} : a ∪ (b - a) = a ∪ b :=
+lemma union_sdiff_same {a b : set α} : a ∪ (b \ a) = a ∪ b :=
 lattice.sup_sub_same
 
 @[simp]
@@ -926,13 +926,13 @@ lemma union_same_compl {a : set α} : a ∪ (-a) = univ :=
 sup_neg_eq_top
 
 @[simp]
-lemma sdiff_singleton_eq_same {a : α} {s : set α} (h : a ∉ s) : s - {a} = s :=
+lemma sdiff_singleton_eq_same {a : α} {s : set α} (h : a ∉ s) : s \ {a} = s :=
 sub_eq_left $ eq_empty_of_forall_not_mem $ take x ⟨ht, ha⟩, 
   begin simp at ha, simp [ha] at ht, exact h ht end
 
 @[simp]
-lemma insert_sdiff_singleton {a : α} {s : set α}  :
-  insert a (s - {a}) = insert a s :=
+lemma insert_sdiff_singleton {a : α} {s : set α} :
+  insert a (s \ {a}) = insert a s :=
 by simp [insert_eq, union_sdiff_same]
 
 /- inverse image -/

@@ -23,7 +23,7 @@ this $ mem_singleton a
 
 @[simp]
 lemma return_neq_bot {α : Type u} {a : α} : return a ≠ (⊥ : filter α) :=
-by simp [return, pure]
+by simp [return]
 
 lemma not_imp_iff_not_imp {a b : Prop} :
   (¬ a → ¬ b) ↔ (b → a) :=
@@ -54,7 +54,7 @@ lemma inf_eq_bot_iff_le_compl {α : Type u} [bounded_distrib_lattice α] {a b c 
       ... = ⊥ : h₂⟩
 
 lemma compl_image_set_of {α : Type u} {p : set α → Prop} :
-  compl ' {x | p x} = {x | p (- x)} :=
+  compl '' {x | p x} = {x | p (- x)} :=
 set.ext $ take x, ⟨take ⟨y, (hy : p y), (h_eq : -y = x)⟩,
   show p (- x), by rw [-h_eq, lattice.neg_neg]; assumption,
   assume h : p (-x), ⟨_, h, lattice.neg_neg⟩⟩

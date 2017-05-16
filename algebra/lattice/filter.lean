@@ -69,10 +69,12 @@ namespace set
 section
 variables {α β : Type u}
 
+@[simp] theorem bind_def (s : set α) (f : α → set β) : s >>= f = ⋃i∈s, f i := rfl
+
 theorem ne_empty_iff_exists_mem {s : set α} : s ≠ ∅ ↔ ∃ x, x ∈ s :=
 ⟨exists_mem_of_ne_empty, take ⟨x, (hx : x ∈ s)⟩ h, by rw [h] at hx; assumption⟩
 
-lemma fmap_eq_image {f : α → β} {s : set α} : f <$> s = f ' s :=
+lemma fmap_eq_image {f : α → β} {s : set α} : f <$> s = f '' s :=
 rfl
 
 lemma mem_seq_iff {f : set (α → β)} {s : set α} {b : β} :
@@ -175,7 +177,7 @@ lemma set_of_mem_eq {s : set α} : {x | x ∈ s} = s :=
 rfl
 
 lemma mem_image_iff_of_inverse (f : α → β) (g : β → α) {b : β} {s : set α}
-  (h₁ : ∀a, g (f a) = a ) (h₂ : ∀b, f (g b) = b ) : b ∈ f ' s ↔ g b ∈ s :=
+  (h₁ : ∀a, g (f a) = a ) (h₂ : ∀b, f (g b) = b ) : b ∈ f '' s ↔ g b ∈ s :=
 ⟨take ⟨a, ha, fa_eq⟩, fa_eq ▸ (h₁ a)^.symm ▸ ha,
   take h, ⟨g b, h, h₂ b⟩⟩
 
@@ -414,6 +416,10 @@ instance monad_filter : monad filter :=
   pure_bind  := take α β a f, by simp [Sup_image],
   bind_assoc := take α β γ f m₁ m₂, filter_eq $ rfl,
   bind_pure_comp_eq_map := take α β f x, filter_eq $ by simp [join, map, vimage, principal] }
+
+@[simp] theorem pure_def (x : α) : pure x = principal {x} := rfl
+
+@[simp] theorem bind_def {α β} (f : filter α) (m : α → filter β) : f >>= m = join (map m f) := rfl
 
 instance : alternative filter :=
 { filter.monad_filter with
@@ -806,7 +812,7 @@ le_antisymm
       le_refl _⟩⟩)
   (infi_le_infi2 $ take t, ⟨vimage m t,
     infi_le_infi2 $ take ht, ⟨ht,
-      hg $ take x, assume h : x ∈ m ' vimage m t,
+      hg $ take x, assume h : x ∈ m '' vimage m t,
         let ⟨y, hy, h_eq⟩ := h in
         show x ∈ t, from h_eq ▸ hy⟩⟩)
 

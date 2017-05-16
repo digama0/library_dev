@@ -22,7 +22,7 @@ lemma false_neq_true : false ≠ true :=
 begin intro h, rw [h], trivial end
 
 lemma subtype.val_image {p : α → Prop} {s : set (subtype p)} :
-  subtype.val ' s = {x | ∃h : p x, (⟨x, h⟩ : subtype p) ∈ s} :=
+  subtype.val '' s = {x | ∃h : p x, (⟨x, h⟩ : subtype p) ∈ s} :=
 set.ext $ take a,
 ⟨take ⟨⟨a', ha'⟩, in_s, (h_eq : a' = a)⟩, h_eq ▸ ⟨ha', in_s⟩,
   take ⟨ha, in_s⟩, ⟨⟨a, ha⟩, in_s, rfl⟩⟩

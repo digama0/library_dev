@@ -44,17 +44,17 @@ begin
   induction hs with a t' ha ht' ih,
   { intros t ht, simp [(subset_empty_iff t)^.mp ht, finite.empty] },
   { intros t ht,
-    assertv tm : finite (t - {a}) :=
-      (ih $ show t - {a} ⊆ t',
+    note tm : finite (t \ {a}) :=
+      (ih $ show t \ {a} ⊆ t',
         from take x ⟨hxt, hna⟩, or.resolve_left (ht hxt) (by simp at hna; assumption)),
     cases (classical.em $ a ∈ t) with ha hna,
-    { have finite (insert a (t - {a})), from finite_insert tm,
+    { have finite (insert a (t \ {a})), from finite_insert tm,
       show finite t,
         by simp [ha] at this; assumption },
     { simp [sdiff_singleton_eq_same, hna] at tm, exact tm } }
 end
 
-lemma finite_image {s : set α} {f : α → β} (h : finite s) : finite (f ' s) :=
+lemma finite_image {s : set α} {f : α → β} (h : finite s) : finite (f '' s) :=
 begin
   induction h with a s' hns' hs' hi,
   simp [image_empty, finite.empty],

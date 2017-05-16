@@ -44,7 +44,7 @@ lemma prod_mk_mem_comp_rel {a b c : α} {s t : set (α×α)} (h₁ : (a, c) ∈ 
 
 @[simp]
 lemma mem_pure {a : α} {s : set α} : a ∈ s → s ∈ (pure a : filter α).sets :=
-by simp [pure]; exact id
+by simp; exact id
 
 @[simp]
 lemma set.prod_singleton_singleton {a : α} {b : β} :
@@ -480,7 +480,7 @@ definition complete (α : Type u) [uniform_space α] := ∀(f:filter α), cauchy
 
 lemma complete_extension [uniform_space β] {m : β → α}
   (hm : uniform_embedding m)
-  (dense : ∀x, x ∈ closure (m ' univ))
+  (dense : ∀x, x ∈ closure (m '' univ))
   (h : ∀f:filter β, cauchy f → ∃x:α, map m f ≤ nhds x) :
   complete α :=
 take (f : filter α), assume hf : cauchy f,
@@ -501,14 +501,14 @@ have vmap m g ≠ ⊥, from
   let ⟨t', ht', ht_mem⟩ := (mem_lift_iff mg₁).mp ht in
   let ⟨t'', ht'', ht'_sub⟩ := (mem_lift'_iff mg₂).mp ht_mem in
   let ⟨x, (hx : x ∈ t'')⟩ := inhabited_of_mem_sets hf.left ht'' in
-  have h₀ : nhds x ⊓ principal (m ' univ) ≠ ⊥,
+  have h₀ : nhds x ⊓ principal (m '' univ) ≠ ⊥,
     by simp [closure_eq_nhds] at dense; exact dense x,
-  have h₁ : {y | (x, y) ∈ t'} ∈ (nhds x ⊓ principal (m ' univ)).sets,
-    from @mem_inf_sets_of_left α (nhds x) (principal (m ' univ)) _ $ mem_nhds_left ht',
-  have h₂ : m ' univ ∈ (nhds x ⊓ principal (m ' univ)).sets,
-    from @mem_inf_sets_of_right α (nhds x) (principal (m ' univ)) _ $ subset.refl _,
-  have {y | (x, y) ∈ t'} ∩ m ' univ ∈ (nhds x ⊓ principal (m ' univ)).sets,
-    from @inter_mem_sets α (nhds x ⊓ principal (m ' univ)) _ _ h₁ h₂,
+  have h₁ : {y | (x, y) ∈ t'} ∈ (nhds x ⊓ principal (m '' univ)).sets,
+    from @mem_inf_sets_of_left α (nhds x) (principal (m '' univ)) _ $ mem_nhds_left ht',
+  have h₂ : m '' univ ∈ (nhds x ⊓ principal (m '' univ)).sets,
+    from @mem_inf_sets_of_right α (nhds x) (principal (m '' univ)) _ $ subset.refl _,
+  have {y | (x, y) ∈ t'} ∩ m '' univ ∈ (nhds x ⊓ principal (m '' univ)).sets,
+    from @inter_mem_sets α (nhds x ⊓ principal (m '' univ)) _ _ h₁ h₂,
   let ⟨y, xyt', b, _, b_eq⟩ := inhabited_of_mem_sets h₀ this in
   ne_empty_iff_exists_mem.mpr ⟨b,
     hs_sub $ show m b ∈ t, from b_eq.symm ▸ ht'_sub ⟨x, hx, xyt'⟩⟩,
@@ -589,7 +589,7 @@ instance : uniform_space (quotient (separation_setoid α)) :=
         simp at a_eq,
         simp at b_eq,
         assert h : ⟦a₂⟧ = ⟦b₁⟧, { rw [a_eq.right, b_eq.left] },
-        assertv h : (a₂, b₁) ∈ separation_rel α := quotient.exact h,
+        note h : (a₂, b₁) ∈ separation_rel α := quotient.exact h,
         simp [function.comp, set.image, comp_rel],
         exact ⟨a₁, a_eq.left, b₂, b_eq.right, a₂, ha, b₁, h s hs, hb⟩
       end
@@ -620,7 +620,7 @@ variables
   [uniform_space γ]
   {e : β → α}
   (h_e : uniform_embedding e)
-  (h_dense : ∀x, x ∈ closure (e ' univ))
+  (h_dense : ∀x, x ∈ closure (e '' univ))
   {f : β → γ}
   (h_f : uniform_continuous f)
 
@@ -628,15 +628,15 @@ include h_dense h_e
 
 private lemma vmap_e_neq_empty {a : α} : vmap e (nhds a) ≠ ⊥ :=
 forall_sets_neq_empty_iff_neq_bot.mp $
-have neq_bot : nhds a ⊓ principal (e ' univ) ≠ ⊥,
+have neq_bot : nhds a ⊓ principal (e '' univ) ≠ ⊥,
   by simp [closure_eq_nhds] at h_dense; exact h_dense a,
 take s ⟨t, ht, (hs : vimage e t ⊆ s)⟩,
-have h₁ : t ∈ (nhds a ⊓ principal (e ' univ)).sets,
-  from @mem_inf_sets_of_left α (nhds a) (principal (e ' univ)) t ht,
-have h₂ : e ' univ ∈ (nhds a ⊓ principal (e ' univ)).sets,
-  from @mem_inf_sets_of_right α (nhds a) (principal (e ' univ)) _ $ subset.refl _,
-have t ∩ e ' univ ∈ (nhds a ⊓ principal (e ' univ)).sets,
-  from @inter_mem_sets α (nhds a ⊓ principal (e ' univ)) _ _ h₁ h₂,
+have h₁ : t ∈ (nhds a ⊓ principal (e '' univ)).sets,
+  from @mem_inf_sets_of_left α (nhds a) (principal (e '' univ)) t ht,
+have h₂ : e '' univ ∈ (nhds a ⊓ principal (e '' univ)).sets,
+  from @mem_inf_sets_of_right α (nhds a) (principal (e '' univ)) _ $ subset.refl _,
+have t ∩ e '' univ ∈ (nhds a ⊓ principal (e '' univ)).sets,
+  from @inter_mem_sets α (nhds a ⊓ principal (e '' univ)) _ _ h₁ h₂,
 let ⟨x, ⟨hx₁, y, hy, y_eq⟩⟩ := inhabited_of_mem_sets neq_bot this in
 ne_empty_of_mem $ hs $ show e y ∈ t, from y_eq.symm ▸ hx₁
 
@@ -688,7 +688,8 @@ have vimage (λp:β×β, (f p.1, f p.2)) s ∈ (@uniformity β _).sets,
   from h_f hs,
 begin
   rw [h_e.right.symm, uniformity_eq_uniformity_interior] at this,
-  simp
+  simp,
+  admit -- TODO(Mario): The simp call no longer closes the goal, and I have no idea what is happening in this proof
 end
 
 end uniform_extension
@@ -788,13 +789,13 @@ lemma uniform_embedding_pure_cauchy : uniform_embedding (pure_cauchy : α → Ca
 
   have (vimage (λ (x : α × α), (pure_cauchy (x.fst), pure_cauchy (x.snd))) ∘ gen) = id,
     from funext $ take s, set.ext $ take ⟨a₁, a₂⟩,
-      by simp [vimage, gen, pure_cauchy, pure, prod_principal_principal],
+      by simp [vimage, gen, pure_cauchy, prod_principal_principal],
   calc vmap (λ (x : α × α), (pure_cauchy (x.fst), pure_cauchy (x.snd))) (uniformity^.lift' gen) =
           uniformity^.lift' (vimage (λ (x : α × α), (pure_cauchy (x.fst), pure_cauchy (x.snd))) ∘ gen) :
       vmap_lift'_eq monotone_gen
     ... = uniformity : by simp [this]⟩
 
-lemma pure_cauchy_dense : ∀x, x ∈ closure (pure_cauchy ' univ) :=
+lemma pure_cauchy_dense : ∀x, x ∈ closure (pure_cauchy '' univ) :=
 take f,
 have h_ex : ∀s∈(@uniformity (Cauchy α) _).sets, ∃y:α, (f, pure_cauchy y) ∈ s, from
   take s hs,
@@ -815,7 +816,7 @@ begin
   exact (lift'_neq_bot_iff $ monotone_inter monotone_const monotone_vimage).mpr
     (take s hs,
       let ⟨y, hy⟩ := h_ex s hs in
-      have pure_cauchy y ∈ pure_cauchy ' univ ∩ {y : Cauchy α | (f, y) ∈ s},
+      have pure_cauchy y ∈ pure_cauchy '' univ ∩ {y : Cauchy α | (f, y) ∈ s},
         from ⟨mem_image_of_mem _ $ mem_univ y, hy⟩,
       ne_empty_of_mem this)
 end

@@ -368,6 +368,8 @@ lemma supr_union {f : β → α} {s t : set β} : (⨆ x ∈ s ∪ t, f x) = (�
 calc (⨆ x ∈ s ∪ t, f x) = (⨆ x, (⨆h : x∈s, f x) ⊔ (⨆h : x∈t, f x)) : congr_arg supr $ funext $ take x, supr_or
                     ... = (⨆x∈s, f x) ⊔ (⨆x∈t, f x) : supr_sup_eq
 
+@[simp] theorem insert_of_has_insert (x : α) (a : set α) : has_insert.insert x a = insert x a := rfl
+
 @[simp]
 lemma infi_insert {f : β → α} {s : set β} {b : β} : (⨅ x ∈ insert b s, f x) = f b ⊓ (⨅x∈s, f x) :=
 eq.trans infi_union $ congr_arg (λx:α, x ⊓ (⨅x∈s, f x)) infi_infi_eq_left

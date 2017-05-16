@@ -37,7 +37,7 @@ meta def congr_rule (congr : expr) (cs : list (list expr → conv unit)) : conv 
     focus $ cs^.map $ λc, (do
       xs ← intros,
       conversion (head_beta >> c xs)),
-    now),
+    done),
   rhs ← instantiate_mvars meta_rhs,
   pr ← instantiate_mvars meta_pr,
   return ⟨(), rhs, some pr⟩
@@ -102,7 +102,7 @@ meta structure binder_eq_elim :=
 (apply_elim_eq : conv unit)                      -- (B (x : β) (h : x = t), s x) = s t
 
 meta def binder_eq_elim.check_eq (b : binder_eq_elim) (x : expr) : expr → tactic unit
-| ```(@eq %%β %%l %%r) := guard ((l = x ∧ ¬ x^.occurs r) ∨ (r = x ∧ ¬ x^.occurs l))
+| `(@eq %%β %%l %%r) := guard ((l = x ∧ ¬ x^.occurs r) ∨ (r = x ∧ ¬ x^.occurs l))
 | _ := fail "no match"
 
 meta def binder_eq_elim.pull (b : binder_eq_elim) (x : expr) : conv unit := do
@@ -151,7 +151,7 @@ lemma {u v} exists_elim_eq_right {α : Sort u} (a : α) (p : Π(a':α), a = a' �
 ⟨λ⟨a', ⟨h, p_h⟩⟩, match a', h, p_h with ._, rfl, h := h end, λh, ⟨a, rfl, h⟩⟩
 
 meta def exists_eq_elim : binder_eq_elim :=
-{ match_binder  := λe, (do ```(@Exists %%β %%f) ← return e, return (β, f)),
+{ match_binder  := λe, (do `(@Exists %%β %%f) ← return e, return (β, f)),
   adapt_rel     := propext,
   apply_comm    := applyc ``exists_comm,
   apply_congr   := congr_binder ``exists_congr,
@@ -177,14 +177,14 @@ meta def forall_eq_elim : binder_eq_elim :=
   apply_elim_eq := apply' ``forall_elim_eq_left <|> apply' ``forall_elim_eq_right }
 
 meta def supr_eq_elim : binder_eq_elim :=
-{ match_binder  := λe, (do ```(@lattice.supr %%α %%β %%cl %%f) ← return e, return (β, f)),
+{ match_binder  := λe, (do `(@lattice.supr %%α %%β %%cl %%f) ← return e, return (β, f)),
   adapt_rel     := λc, (do r ← current_relation, guard (r = `eq), c),
   apply_comm    := applyc ``lattice.supr_comm,
   apply_congr   := congr_arg ∘ funext',
   apply_elim_eq := applyc ``lattice.supr_supr_eq_left <|> applyc ``lattice.supr_supr_eq_right }
 
 meta def infi_eq_elim : binder_eq_elim :=
-{ match_binder  := λe, (do ```(@lattice.infi %%α %%β %%cl %%f) ← return e, return (β, f)),
+{ match_binder  := λe, (do `(@lattice.infi %%α %%β %%cl %%f) ← return e, return (β, f)),
   adapt_rel     := λc, (do r ← current_relation, guard (r = `eq), c),
   apply_comm    := applyc ``lattice.infi_comm,
   apply_congr   := congr_arg ∘ funext',
@@ -212,6 +212,6 @@ lemma Sup_image {s : set β} {f : β → α} : Sup (set.image f s) = (⨆ a ∈ 
 begin
   simp [Sup_eq_supr, supr_and],
   conversion supr_eq_elim^.conv,
-end
+end
 
 end

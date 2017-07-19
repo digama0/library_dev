@@ -253,8 +253,8 @@ theorem not_terminates_empty : ¬ terminates (empty α) :=
 theorem eq_empty_of_not_terminates {s} (H : ¬ terminates s) : s = empty α :=
 begin
   apply subtype.eq, apply funext, intro n,
-  ginduction s.val n with h,
-  { exact h }, { refine absurd _ H, exact ⟨_, _, h.symm⟩ }
+  ginduction s.val n with h, {refl},
+  refine absurd _ H, exact ⟨_, _, h.symm⟩
 end
 
 theorem thinkN_mem {s : computation α} {a} : ∀ n, a ∈ thinkN s n ↔ a ∈ s
